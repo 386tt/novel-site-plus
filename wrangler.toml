@@ -1,0 +1,14 @@
+name = "novel-site"
+pages_build_output_dir = "."
+compatibility_date = "2026-02-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "novel-db"
+# 替换为你自己的 D1 数据库 ID（npx wrangler d1 create novel-db 的输出）
+database_id = "<YOUR_D1_DATABASE_ID>"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "novel-storage"
+

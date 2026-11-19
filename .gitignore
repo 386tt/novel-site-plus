@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+
+# 本地真实部署配置（含资源 ID），不提交
+wrangler.toml.local
+wrangler.test.toml
+wrangler.toml.bak
+

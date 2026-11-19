@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>批注管理 - 书间</title>
+  
+  <!-- P3修复：DNS预解析和预连接 -->
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/style.css?v=commentfix-20261112">
+  <style>
+    body { background: var(--bg); min-height: 100vh; color: var(--text); }
+    .anno-admin { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .anno-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .anno-header h1 { font-size: 1.5rem; margin: 0; }
+    .anno-header a { color: var(--accent); text-decoration: none; }
+    .anno-logout { font-size: 12px; color: #e74c3c; margin-left: 12px; }
+    .anno-header .theme-toggle { margin-left: 10px; vertical-align: middle; }
+    
+    /* 统计卡片 */
+    .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      min-width: 100px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-card.active { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
+    .stat-card .num { font-size: 1.5rem; font-weight: 600; color: var(--text); }
+    .stat-card .label { font-size: 0.85rem; color: var(--text-light); margin-top: 4px; }
+    
+    /* 筛选栏 */
+    .filter-row {
+      display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+      background: var(--card-bg); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);
+    }
+    .filter-row select, .filter-row input[type="text"] {
+      padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg); color: var(--text); font-size: 14px;
+    }
+    .filter-row input[type="text"] { flex: 1; min-width: 150px; }
+    
+    /* 批量操作栏 */
+    .batch-bar {
+      display: none; background: var(--accent); color: #fff; padding: 10px 16px;
+      border-radius: var(--radius); margin-bottom: 12px; align-items: center; gap: 12px;
+    }
+    .batch-bar.visible { display: flex; }
+    .batch-bar button { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 12px; border-radius: var(--radius); cursor: pointer; }
+    .batch-bar button:hover { background: rgba(255,255,255,0.3); }
+    
+    /* 批注列表 */
+    .anno-list { display: flex; flex-direction: column; gap: 12px; }
+    .anno-item {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; transition: all 0.2s;
+    }
+    .anno-item:hover { border-color: var(--accent); }
+    .anno-item.selected { background: rgba(99, 102, 241, 0.05); border-color: var(--accent); }
+    .anno-item.removed { opacity: 0.6; }
+    
+    .anno-item-header { display: flex; align-items: flex-start; gap: 10px; }
+    .anno-checkbox { margin-top: 2px; }
+    .anno-quote {
+      font-size: 13px; color: var(--text-light); border-left: 3px solid var(--accent);
+      padding: 4px 10px; margin-bottom: 8px; background: var(--bg); border-radius: 0 4px 4px 0;
+      max-height: 60px; overflow: hidden; line-height: 1.5;
+    }
+    .anno-content { font-size: 14px; line-height: 1.6; color: var(--text); margin-bottom: 10px; }
+    .anno-meta {
+      display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--text-light);
+      align-items: center;
+    }
+    .anno-meta .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    }
+    .badge-demo { background: #fef3c7; color: #92400e; }
+    .badge-admin { background: #dbeafe; color: #1e40af; }
+    .badge-super { background: #fce7f3; color: #9d174d; }
+    .badge-private { background: #f3f4f6; color: #6b7280; }
+    .badge-reported { background: #fef2f2; color: #dc2626; }
+    .badge-removed { background: #fee2e2; color: #b91c1c; }
+    
+    .anno-actions { display: flex; gap: 8px; margin-left: auto; }
+    .anno-actions button {
+      background: none; border: 1px solid var(--border); padding: 4px 10px;
+      border-radius: var(--radius); font-size: 12px; cursor: pointer; color: var(--text);
+    }
+    .anno-actions button:hover { border-color: var(--accent); color: var(--accent); }
+    .anno-actions button.danger:hover { border-color: #dc2626; color: #dc2626; }
+    
+    /* 分页 */
+    .pagination {
+      display: flex; justify-content: center; align-items: center; gap: 12px;
+      margin-top: 20px; padding: 16px;
+    }
+    .pagination button {
+      background: var(--card-bg); border: 1px solid var(--border); padding: 8px 16px;
+      border-radius: var(--radius); cursor: pointer; color: var(--text);
+    }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pagination button:not(:disabled):hover { border-color: var(--accent); }
+    .pagination .page-info { font-size: 14px; color: var(--text-light); }
+    
+    /* 空状态 */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+    
+    /* 加载状态 */
+    .loading-state { text-align: center; padding: 40px; color: var(--text-light); }
+    
+    /* Tab 切换 */
+    .tab-bar { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .tab-btn {
+      padding: 10px 20px; border: none; background: none; cursor: pointer;
+      font-size: 14px; color: var(--text-light); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.2s;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    
+    /* 举报项 */
+    .report-item {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; margin-bottom: 12px;
+    }
+    .report-item .report-reason {
+      font-size: 13px; color: var(--text); background: #fef2f2; padding: 8px 12px;
+      border-radius: var(--radius); margin: 8px 0; border-left: 3px solid #dc2626;
+    }
+    .report-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .report-actions button {
+      padding: 6px 14px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--text);
+    }
+    .report-actions button.btn-remove { border-color: #dc2626; color: #dc2626; }
+    .report-actions button.btn-remove:hover { background: #dc2626; color: #fff; }
+    .report-actions button.btn-keep { border-color: #16a34a; color: #16a34a; }
+    .report-actions button.btn-keep:hover { background: #16a34a; color: #fff; }
+    
+    /* P2修复：确认对话框样式 */
+    .confirm-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .confirm-dialog {
+      background: var(--card-bg); border-radius: var(--radius);
+      padding: 20px; max-width: 400px; width: 90%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    .confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+    .confirm-message { font-size: 14px; color: var(--text-light); line-height: 1.6; margin-bottom: 20px; }
+    .confirm-actions { display: flex; gap: 12px; justify-content: flex-end; }
+    .confirm-btn {
+      padding: 8px 20px; border-radius: var(--radius); font-size: 14px;
+      cursor: pointer; border: 1px solid var(--border); background: var(--card-bg);
+      color: var(--text); transition: all 0.2s;
+    }
+    .confirm-btn:hover { border-color: var(--accent); }
+    .confirm-btn.confirm { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .confirm-btn.confirm.danger { background: #dc2626; border-color: #dc2626; }
+    .confirm-btn.confirm.danger:hover { background: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="anno-admin">
+    <div class="anno-header">
+      <h1>📝 批注管理</h1>
+      <div>
+        <a href="/admin.html">← 返回管理后台</a>
+        <a href="#" onclick="doLogout();return false" class="anno-logout">退出登录</a>
+        <button class="theme-toggle" type="button" title="切换主题">🌙</button>
+      </div>
+    </div>
+    
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card" data-filter="all">
+        <div class="num" id="stat-total">-</div>
+        <div class="label">总数</div>
+      </div>
+      <div class="stat-card" data-filter="today">
+        <div class="num" id="stat-today">-</div>
+        <div class="label">今日</div>
+      </div>
+      <div class="stat-card" data-filter="reported">
+        <div class="num" id="stat-reported">-</div>
+        <div class="label">被举报</div>
+      </div>
+      <div class="stat-card" data-filter="removed">
+        <div class="num" id="stat-removed">-</div>
+        <div class="label">已移除</div>
+      </div>
+    </div>
+    
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="annotations">📝 批注列表</button>
+      <button class="tab-btn" data-tab="reports">⚠️ 举报管理</button>
+    </div>
+    
+    <div class="tab-panel active" id="panel-annotations">
+    <div class="filter-row">
+      <select id="filter-book">
+        <option value="">全部书籍</option>
+      </select>
+      <select id="filter-status">
+        <option value="">全部状态</option>
+        <option value="normal">正常</option>
+        <option value="reported">被举报</option>
+        <option value="removed">已移除</option>
+      </select>
+      <select id="filter-visibility">
+        <option value="">全部类型</option>
+        <option value="public">公开</option>
+        <option value="private">私有</option>
+      </select>
+      <input type="text" id="filter-search" placeholder="搜索批注内容或原文...">
+      <button class="btn btn-sm" id="btn-search">搜索</button>
+    </div>
+    
+    <div class="batch-bar" id="batch-bar">
+      <span>已选 <strong id="selected-count">0</strong> 条</span>
+      <button id="batch-remove">批量移除</button>
+      <button id="batch-restore">批量恢复</button>
+      <button id="batch-cancel">取消</button>
+    </div>
+    
+    <div class="anno-list" id="anno-list">
+      <div class="loading-state">加载中...</div>
+    </div>
+    
+    <div class="pagination" id="pagination" style="display:none">
+      <button id="btn-prev">上一页</button>
+      <span class="page-info"><span id="page-current">1</span> / <span id="page-total">1</span></span>
+      <button id="btn-next">下一页</button>
+    </div>
+    </div><!-- end panel-annotations -->
+    
+    <div class="tab-panel" id="panel-reports">
+      <div class="filter-row">
+        <select id="report-filter-status">
+          <option value="">全部状态</option>
+          <option value="pending">待处理</option>
+          <option value="escalated">社区投票中</option>
+          <option value="resolved">已处理</option>
+        </select>
+        <select id="report-filter-book">
+          <option value="">全部书籍</option>
+        </select>
+      </div>
+      <div id="report-list"><div class="loading-state">加载中...</div></div>
+      <div class="pagination" id="report-pagination" style="display:none">
+        <button id="report-btn-prev">上一页</button>
+        <span class="page-info"><span id="report-page-current">1</span> / <span id="report-page-total">1</span></span>
+        <button id="report-btn-next">下一页</button>
+      </div>
+    </div><!-- end panel-reports -->
+  </div>
+
+  <script>
+    // 认证由HttpOnly Cookie自动携带，页面加载时检查登录状态
+    let currentPage = 1;
+    let totalPages = 1;
+    let selectedIds = new Set();
+    let currentRole = '';
+
+    async function api(method, path, body) {
+      const opts = {
+        method,
+        headers: {},
+        credentials: 'same-origin'
+      };
+      if (body !== undefined || method === 'DELETE') {
+        opts.headers['Content-Type'] = 'application/json';
+        if (body !== undefined) opts.body = JSON.stringify(body);
+      }
+      return fetch(path, opts);
+    }
+
+    // 获取当前用户信息
+    async function doLogout() {
+      try { await fetch('/api/auth/logout', { method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin', cache: 'no-store' }); } catch {}
+      localStorage.removeItem('auth_token'); localStorage.removeItem('auth_role'); localStorage.removeItem('auth_uid');
+      sessionStorage.clear();
+      location.replace('/?logged_out=' + Date.now());
+      location.href = '/admin.html';
+    }
+
+    async function fetchMe() {
+      const res = await api('GET', '/api/me');
+      if (res.ok) {
+        const data = await res.json();
+        currentRole = data.role;
+      } else {
+        alert('请先登录');
+        location.href = '/admin.html';
+      }
+    }
+
+    // 加载统计
+    async function loadStats() {
+      const res = await api('GET', '/api/admin/annotations/stats');
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('stat-total').textContent = data.total;
+        document.getElementById('stat-today').textContent = data.today;
+        document.getElementById('stat-reported').textContent = data.reported;
+        document.getElementById('stat-removed').textContent = data.removed;
+      }
+    }
+
+    // 加载书籍列表
+    async function loadBooks() {
+      const res = await api('GET', '/api/admin/books');
+      if (res.ok) {
+        const data = await res.json();
+        const select = document.getElementById('filter-book');
+        (data.books || []).forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.id;
+          opt.textContent = b.title;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    // 加载批注列表
+    async function loadAnnotations() {
+      const bookId = document.getElementById('filter-book').value;
+      const status = document.getElementById('filter-status').value;
+      const visibility = document.getElementById('filter-visibility').value;
+      const search = document.getElementById('filter-search').value;
+
+      const params = new URLSearchParams({ page: currentPage, limit: 20 });
+      if (bookId) params.set('bookId', bookId);
+      if (status) params.set('status', status);
+      if (visibility) params.set('visibility', visibility);
+      if (search) params.set('search', search);
+
+      const list = document.getElementById('anno-list');
+      list.innerHTML = '<div class="loading-state">加载中...</div>';
+
+      const res = await api('GET', `/api/admin/annotations?${params}`);
+      if (!res.ok) {
+        list.innerHTML = '<div class="empty-state">加载失败</div>';
+        return;
+      }
+
+      const data = await res.json();
+      const annos = data.annotations || [];
+      totalPages = data.pagination?.totalPages || 1;
+
+      if (annos.length === 0) {
+        list.innerHTML = '<div class="empty-state">暂无批注</div>';
+        document.getElementById('pagination').style.display = 'none';
+        return;
+      }
+
+      list.innerHTML = annos.map(a => renderAnnoItem(a)).join('');
+      document.getElementById('pagination').style.display = 'flex';
+      document.getElementById('page-current').textContent = currentPage;
+      document.getElementById('page-total').textContent = totalPages;
+      document.getElementById('btn-prev').disabled = currentPage <= 1;
+      document.getElementById('btn-next').disabled = currentPage >= totalPages;
+
+      bindItemEvents();
+    }
+
+    function renderAnnoItem(a) {
+      const roleBadge = a.user_role === 'super_admin' ? '<span class="badge badge-super">超管</span>' :
+                        a.user_role === 'admin' ? '<span class="badge badge-admin">管理</span>' :
+                        a.user_role === 'demo' ? '<span class="badge badge-demo">demo</span>' : '';
+      const statusBadge = a.status === 'reported' ? '<span class="badge badge-reported">⚠️举报</span>' :
+                          a.status === 'removed' ? '<span class="badge badge-removed">🚫已移除</span>' : '';
+      const visBadge = a.visibility === 'private' ? '<span class="badge badge-private">🔒私有</span>' : '';
+      
+      const isRemoved = a.status === 'removed';
+      const canDelete = currentRole === 'super_admin';
+
+      return `
+        <div class="anno-item ${isRemoved ? 'removed' : ''} ${selectedIds.has(a.id) ? 'selected' : ''}" data-id="${a.id}">
+          <div class="anno-item-header">
+            <input type="checkbox" class="anno-checkbox" data-id="${a.id}" ${selectedIds.has(a.id) ? 'checked' : ''}>
+            <div style="flex:1">
+              <div class="anno-quote">${escHtml(a.sent_text || '')}</div>
+              <div class="anno-content">${escHtml(a.content)}</div>
+              <div class="anno-meta">
+                <span>👤 ${escHtml(a.username || '未知')}</span>
+                ${roleBadge}
+                <span>📖 ${escHtml(a.book_title || '')} / ${escHtml(a.chapter_title || '')}</span>
+                <span>🕐 ${timeAgo(a.created_at)}</span>
+                ${visBadge}
+                ${statusBadge}
+                <span>❤️ ${a.like_count || 0}</span>
+                <div class="anno-actions">
+                  <button class="btn-context" data-book="${a.book_id}" data-chapter="${a.chapter_id}" data-para="${a.para_idx}">上下文</button>
+                  ${isRemoved ? 
+                    `<button class="btn-restore" data-id="${a.id}">恢复</button>` :
+                    `<button class="btn-remove" data-id="${a.id}">移除</button>`
+                  }
+                  ${canDelete ? `<button class="btn-delete danger" data-id="${a.id}">永久删除</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return '';
+      const diff = Date.now() - new Date(dateStr + 'Z').getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return '刚刚';
+      if (m < 60) return m + '分钟前';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + '小时前';
+      const d = Math.floor(h / 24);
+      if (d < 30) return d + '天前';
+      return new Date(dateStr).toLocaleDateString('zh-CN');
+    }
+
+    function bindItemEvents() {
+      // 复选框
+      document.querySelectorAll('.anno-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const id = parseInt(cb.dataset.id);
+          if (cb.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          cb.closest('.anno-item').classList.toggle('selected', cb.checked);
+          updateBatchBar();
+        });
+      });
+
+      // 上下文按钮
+      document.querySelectorAll('.btn-context').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const bookId = btn.dataset.book;
+          const chapterId = btn.dataset.chapter;
+          const paraIdx = btn.dataset.para;
+          window.open(`/read.html?id=${chapterId}#para-${paraIdx}`, '_blank');
+        });
+      });
+
+      // 移除按钮
+      document.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('确定移除此批注？')) return;
+          const id = btn.dataset.id;
+          const res = await api('PUT', `/api/admin/annotations/${id}`, { status: 'removed' });
+          if (res.ok) loadAnnotations();
+          else alert((await res.json().catch(() => ({}))).error || '操作失败');
+        });
+      });
+
+      // 恢复按钮
+      document.querySelectorAll('.btn-restore').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const res = await api('PUT', `/api/admin/annotations/${id}`, { status: 'normal' });
+          if (res.ok) loadAnnotations();
+          else alert('操作失败');
+        });
+      });
+
+      // 永久删除按钮
+      document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('永久删除后无法恢复，确定？')) return;
+          const id = btn.dataset.id;
+          const res = await api('DELETE', `/api/admin/annotations/${id}`);
+          if (res.ok) { loadAnnotations(); loadStats(); }
+          else alert((await res.json().catch(() => ({}))).error || '删除失败');
+        });
+      });
+    }
+
+    function updateBatchBar() {
+      const bar = document.getElementById('batch-bar');
+      const count = selectedIds.size;
+      document.getElementById('selected-count').textContent = count;
+      bar.classList.toggle('visible', count > 0);
+    }
+
+    // 统计卡片点击
+    document.querySelectorAll('.stat-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const filter = card.dataset.filter;
+        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        
+        const statusSelect = document.getElementById('filter-status');
+        if (filter === 'reported') statusSelect.value = 'reported';
+        else if (filter === 'removed') statusSelect.value = 'removed';
+        else statusSelect.value = '';
+        
+        currentPage = 1;
+        loadAnnotations();
+      });
+    });
+
+    // 筛选
+    document.getElementById('btn-search').addEventListener('click', () => {
+      currentPage = 1;
+      loadAnnotations();
+    });
+    document.getElementById('filter-search').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { currentPage = 1; loadAnnotations(); }
+    });
+    ['filter-book', 'filter-status', 'filter-visibility'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        currentPage = 1;
+        loadAnnotations();
+      });
+    });
+
+    // 分页
+    document.getElementById('btn-prev').addEventListener('click', () => {
+      if (currentPage > 1) { currentPage--; loadAnnotations(); }
+    });
+    document.getElementById('btn-next').addEventListener('click', () => {
+      if (currentPage < totalPages) { currentPage++; loadAnnotations(); }
+    });
+
+    // P2修复：批量操作确认对话框
+    // 创建自定义确认对话框
+    function showConfirmDialog(title, message, confirmText, isDanger = false) {
+      return new Promise((resolve) => {
+        // 创建对话框元素
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        overlay.innerHTML = `
+          <div class="confirm-dialog">
+            <div class="confirm-title">${title}</div>
+            <div class="confirm-message">${message}</div>
+            <div class="confirm-actions">
+              <button class="confirm-btn cancel">取消</button>
+              <button class="confirm-btn confirm ${isDanger ? 'danger' : ''}">${confirmText}</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        // 绑定事件
+        const cancelBtn = overlay.querySelector('.cancel');
+        const confirmBtn = overlay.querySelector('.confirm');
+        
+        const close = (result) => {
+          overlay.remove();
+          resolve(result);
+        };
+        
+        cancelBtn.addEventListener('click', () => close(false));
+        confirmBtn.addEventListener('click', () => close(true));
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) close(false);
+        });
+        
+        // 聚焦到确认按钮
+        confirmBtn.focus();
+      });
+    }
+
+    // 批量操作
+    document.getElementById('batch-remove').addEventListener('click', async () => {
+      const count = selectedIds.size;
+      const confirmed = await showConfirmDialog(
+        '批量移除确认',
+        `确定要移除选中的 <strong>${count}</strong> 条批注吗？<br><small style="color:var(--text-light)">移除后批注将不再公开显示，但可通过"恢复"功能恢复。</small>`,
+        '确认移除',
+        true
+      );
+      if (!confirmed) return;
+      
+      const res = await api('POST', '/api/admin/annotations/batch', { ids: [...selectedIds], action: 'remove' });
+      if (res.ok) { selectedIds.clear(); updateBatchBar(); loadAnnotations(); loadStats(); }
+      else alert('操作失败');
+    });
+    document.getElementById('batch-restore').addEventListener('click', async () => {
+      const count = selectedIds.size;
+      const confirmed = await showConfirmDialog(
+        '批量恢复确认',
+        `确定要恢复选中的 <strong>${count}</strong> 条批注吗？`,
+        '确认恢复',
+        false
+      );
+      if (!confirmed) return;
+      
+      const res = await api('POST', '/api/admin/annotations/batch', { ids: [...selectedIds], action: 'restore' });
+      if (res.ok) { selectedIds.clear(); updateBatchBar(); loadAnnotations(); loadStats(); }
+      else alert('操作失败');
+    });
+    document.getElementById('batch-cancel').addEventListener('click', () => {
+      selectedIds.clear();
+      document.querySelectorAll('.anno-checkbox').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.anno-item').forEach(item => item.classList.remove('selected'));
+      updateBatchBar();
+    });
+
+    // Tab 切换
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'reports' && !reportsLoaded) {
+          loadReports();
+          reportsLoaded = true;
+        }
+      });
+    });
+
+    // --- 举报管理 ---
+    let reportPage = 1;
+    let reportTotalPages = 1;
+    let reportsLoaded = false;
+
+    async function loadReports() {
+      const status = document.getElementById('report-filter-status').value;
+      const bookId = document.getElementById('report-filter-book').value;
+      const params = new URLSearchParams({ page: reportPage, limit: 20 });
+      if (status) params.set('status', status);
+      if (bookId) params.set('bookId', bookId);
+
+      const list = document.getElementById('report-list');
+      list.innerHTML = '<div class="loading-state">加载中...</div>';
+
+      const res = await api('GET', `/api/admin/reports?${params}`);
+      if (!res.ok) { list.innerHTML = '<div class="empty-state">加载失败</div>'; return; }
+
+      const data = await res.json();
+      const reports = data.reports || [];
+      reportTotalPages = data.pagination?.totalPages || 1;
+
+      if (reports.length === 0) {
+        list.innerHTML = '<div class="empty-state">暂无举报</div>';
+        document.getElementById('report-pagination').style.display = 'none';
+        return;
+      }
+
+      list.innerHTML = reports.map(r => renderReportItem(r)).join('');
+      document.getElementById('report-pagination').style.display = 'flex';
+      document.getElementById('report-page-current').textContent = reportPage;
+      document.getElementById('report-page-total').textContent = reportTotalPages;
+      document.getElementById('report-btn-prev').disabled = reportPage <= 1;
+      document.getElementById('report-btn-next').disabled = reportPage >= reportTotalPages;
+      bindReportEvents();
+    }
+
+    function renderReportItem(r) {
+      const statusMap = {
+        'pending': '<span class="badge badge-reported">待处理</span>',
+        'escalated': '<span class="badge" style="background:#fef3c7;color:#92400e">投票中</span>',
+        'resolved': '<span class="badge" style="background:#dcfce7;color:#15803d">已处理</span>'
+      };
+      const roleBadge = r.anno_user_role === 'super_admin' ? '<span class="badge badge-super">超管</span>' :
+                        r.anno_user_role === 'admin' ? '<span class="badge badge-admin">管理</span>' :
+                        r.anno_user_role === 'demo' ? '<span class="badge badge-demo">demo</span>' : '';
+      const isPending = r.status === 'pending' || r.status === 'escalated';
+
+      return `
+        <div class="report-item" data-id="${r.id}">
+          <div class="anno-quote">${escHtml(r.sent_text || '')}</div>
+          <div class="anno-content">${escHtml(r.anno_content || '')}</div>
+          <div class="anno-meta">
+            <span>批注作者: ${escHtml(r.anno_username || '未知')}</span> ${roleBadge}
+            <span>📖 ${escHtml(r.book_title || '')} / ${escHtml(r.chapter_title || '')}</span>
+            ${statusMap[r.status] || ''}
+            <span>举报数: ${r.report_count || 1}</span>
+          </div>
+          <div class="report-reason">举报理由: ${escHtml(r.reason)}</div>
+          <div class="anno-meta">
+            <span>举报人: ${escHtml(r.reporter_username || '游客')}</span>
+            <span>🕐 ${timeAgo(r.created_at)}</span>
+            ${r.handler_action ? `<span>处理结果: ${r.handler_action === 'remove' ? '移除' : '保留'}</span>` : ''}
+          </div>
+          ${isPending ? `
+          <div class="report-actions">
+            <button class="btn-remove" data-id="${r.id}">移除批注</button>
+            <button class="btn-keep" data-id="${r.id}">保留批注</button>
+          </div>` : ''}
+        </div>
+      `;
+    }
+
+    function bindReportEvents() {
+      document.querySelectorAll('.report-actions .btn-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('确定移除该批注？')) return;
+          const res = await api('PATCH', `/api/admin/reports/${btn.dataset.id}`, { action: 'remove' });
+          if (res.ok) { loadReports(); loadStats(); }
+          else alert('操作失败');
+        });
+      });
+      document.querySelectorAll('.report-actions .btn-keep').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('确定保留该批注？')) return;
+          const res = await api('PATCH', `/api/admin/reports/${btn.dataset.id}`, { action: 'keep' });
+          if (res.ok) { loadReports(); loadStats(); }
+          else alert('操作失败');
+        });
+      });
+    }
+
+    // 举报筛选
+    ['report-filter-status', 'report-filter-book'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => { reportPage = 1; loadReports(); });
+    });
+    document.getElementById('report-btn-prev').addEventListener('click', () => {
+      if (reportPage > 1) { reportPage--; loadReports(); }
+    });
+    document.getElementById('report-btn-next').addEventListener('click', () => {
+      if (reportPage < reportTotalPages) { reportPage++; loadReports(); }
+    });
+
+    // 初始化
+    (async () => {
+      await fetchMe();
+      await Promise.all([loadStats(), loadBooks()]);
+      await loadAnnotations();
+      // 复制书籍选项到举报筛选
+      const reportBookSelect = document.getElementById('report-filter-book');
+      document.querySelectorAll('#filter-book option').forEach(opt => {
+        if (opt.value) reportBookSelect.appendChild(opt.cloneNode(true));
+      });
+    })();
+  </script>
+</body>
+</html>

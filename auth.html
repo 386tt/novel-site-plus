@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 / 注册 - 书间</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/style.css?v=commentfix-20261112">
+</head>
+<body>
+  <div class="navbar">
+    <h1><a href="/">386tt的小说屋</a></h1>
+    <nav>
+      <a href="/">返回书架</a>
+      <button class="theme-toggle" type="button" title="切换主题">🌙</button>
+    </nav>
+  </div>
+  <main class="container">
+    <section class="admin-section auth-card">
+      <div class="auth-card-heading">
+        <span class="auth-eyebrow">WELCOME BACK</span>
+        <h3 id="auth-title">登录</h3>
+        <p>登录后继续阅读你的书架</p>
+      </div>
+      <div class="form-group" id="username-group">
+        <label for="username">用户名</label>
+        <input id="username" maxlength="32" autocomplete="username">
+      </div>
+      <div class="form-group" id="password-group">
+        <label for="password">密码</label>
+        <input id="password" type="password" maxlength="128" autocomplete="current-password">
+      </div>
+      <div class="form-group" id="email-group" style="display:none">
+        <label for="email">邮箱</label>
+        <input id="email" type="email" maxlength="254" autocomplete="email" placeholder="用于验证和找回密码">
+      </div>
+      <button class="btn auth-submit" id="submit">登录</button>
+      <div id="message" class="auth-message"></div>
+      <div id="verification-success" class="auth-success" style="display:none">
+        邮箱验证成功，注册已完成。现在可以使用账号和密码登录。
+      </div>
+      <div id="forgot-panel" class="auth-subpanel" style="display:none">
+        <h4>找回密码</h4>
+        <p>请输入注册账号时使用的邮箱，我们会发送密码重置链接。</p>
+        <div class="form-group">
+          <label for="forgot-email">注册邮箱</label>
+          <input id="forgot-email" type="email" maxlength="254" autocomplete="email" placeholder="请输入邮箱地址">
+        </div>
+        <button class="btn auth-submit" id="forgot-submit">发送重置邮件</button>
+        <button class="btn-link" id="forgot-back" type="button">返回登录</button>
+        <div id="forgot-message" class="auth-message"></div>
+      </div>
+      <p class="auth-switch">
+        <a href="#" id="toggle">没有账号？注册</a>
+      </p>
+      <p id="forgot-wrap" class="auth-forgot"><a href="#" id="forgot">忘记密码？</a></p>
+    </section>
+  </main>
+  <script>
+    let registering = false;
+    const title = document.getElementById('auth-title');
+    const submit = document.getElementById('submit');
+    const toggle = document.getElementById('toggle');
+    const message = document.getElementById('message');
+    const emailGroup = document.getElementById('email-group');
+    const forgotWrap = document.getElementById('forgot-wrap');
+    const forgotPanel = document.getElementById('forgot-panel');
+    const forgotSubmit = document.getElementById('forgot-submit');
+    const forgotBack = document.getElementById('forgot-back');
+    const forgotMessage = document.getElementById('forgot-message');
+    const usernameGroup = document.getElementById('username-group');
+    const passwordGroup = document.getElementById('password-group');
+    const params = new URLSearchParams(location.search);
+    const resetToken = params.get('reset');
+    async function verifyEmail() {
+      const token = params.get('verify') || (params.get('action') === 'verify' ? params.get('token') : null);
+      if (!token) return;
+      const response = await fetch('/api/auth?action=verify&token=' + encodeURIComponent(token), {
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '邮箱验证失败');
+      document.getElementById('verification-success').style.display = '';
+      title.textContent = '注册成功';
+      message.className = 'auth-success';
+      message.textContent = data.message || '邮箱验证成功，注册已完成。现在可以登录。';
+      history.replaceState(null, '', '/auth?verified=1');
+    }
+    if (resetToken) {
+      title.textContent = '重置密码';
+      submit.textContent = '保存新密码';
+      emailGroup.style.display = 'none';
+      forgotWrap.style.display = 'none';
+      document.getElementById('password').placeholder = '输入新密码（至少8位，需字母和数字）';
+      registering = 'reset';
+    } else {
+      verifyEmail().catch(error => {
+        message.className = 'auth-error';
+        message.textContent = error.message || '邮箱验证失败，请重新打开邮件链接';
+      });
+    }
+    toggle.onclick = e => {
+      e.preventDefault();
+      registering = !registering;
+      title.textContent = registering ? '注册读者账号' : '登录';
+      submit.textContent = registering ? '注册' : '登录';
+      emailGroup.style.display = registering ? '' : 'none';
+      forgotWrap.style.display = registering ? 'none' : '';
+      toggle.textContent = registering ? '已有账号？登录' : '没有账号？注册';
+      document.getElementById('password').autocomplete = registering ? 'new-password' : 'current-password';
+      message.className = '';
+      message.textContent = '';
+    };
+    submit.onclick = async () => {
+      message.textContent = '';
+      submit.disabled = true;
+      try {
+        const action = registering === 'reset' ? 'reset' : (registering ? 'register' : 'login');
+        const response = await fetch('/api/auth?action=' + action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            token: resetToken
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || '请求失败');
+        if (registering === 'reset') {
+          message.textContent = '密码已重置，请登录';
+          history.replaceState(null, '', '/auth');
+          registering = false;
+          emailGroup.style.display = 'none';
+          forgotWrap.style.display = '';
+        } else if (registering) {
+          registering = false;
+          title.textContent = '登录';
+          submit.textContent = '登录';
+          toggle.textContent = '没有账号？注册';
+          document.getElementById('password').value = '';
+          message.className = 'auth-success';
+          message.textContent = `注册成功！验证邮件已经发送到 ${document.getElementById('email').value}，请查收邮件并点击验证链接后再登录。`;
+        } else {
+          location.href = '/';
+        }
+      } catch (error) {
+        message.textContent = error.message;
+        message.style.color = '#e74c3c';
+      } finally {
+        submit.disabled = false;
+      }
+    };
+    document.getElementById('forgot').onclick = e => {
+      e.preventDefault();
+      title.textContent = '找回密码';
+      usernameGroup.style.display = 'none';
+      passwordGroup.style.display = 'none';
+      emailGroup.style.display = 'none';
+      submit.style.display = 'none';
+      toggle.parentElement.style.display = 'none';
+      forgotWrap.style.display = 'none';
+      forgotPanel.style.display = '';
+      message.textContent = '';
+      forgotMessage.textContent = '';
+      document.getElementById('forgot-email').focus();
+    };
+    forgotBack.onclick = () => {
+      title.textContent = '登录';
+      usernameGroup.style.display = '';
+      passwordGroup.style.display = '';
+      submit.style.display = '';
+      toggle.parentElement.style.display = '';
+      forgotWrap.style.display = '';
+      forgotPanel.style.display = 'none';
+      message.className = '';
+      message.textContent = '';
+    };
+    forgotSubmit.onclick = async () => {
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email) {
+        forgotMessage.className = 'auth-error';
+        forgotMessage.textContent = '请输入注册邮箱';
+        return;
+      }
+      forgotSubmit.disabled = true;
+      forgotMessage.className = '';
+      forgotMessage.textContent = '';
+      try {
+        const response = await fetch('/api/auth?action=forgot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || '请求失败');
+        forgotMessage.className = 'auth-success';
+        forgotMessage.textContent = '如果该邮箱已注册，密码重置邮件已经发送，请查收邮箱。';
+      } catch (error) {
+        forgotMessage.className = 'auth-error';
+        forgotMessage.textContent = error.message;
+      } finally {
+        forgotSubmit.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

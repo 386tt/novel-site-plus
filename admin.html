@@ -1,0 +1,3070 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>管理后台</title>
+  
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/style.css?v=commentfix-20261112">
+  <script src="/jszip.min.js"></script>
+</head>
+<body>
+  <div class="navbar">
+    <h1><a href="/">书间</a></h1>
+    <nav>
+      <a href="/">返回书架</a>
+      <span id="user-info" style="display:none;font-size:13px;color:var(--text-light)"></span>
+      <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    </nav>
+  </div>
+  <div class="container">
+
+    <!-- 登录界面 -->
+    <div id="login-panel">
+      <div class="admin-section" style="max-width:400px;margin:60px auto">
+        <h3>🔐 管理员登录</h3>
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="login-user" placeholder="用户名">
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="login-pass" placeholder="输入管理密码" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+          <input type="checkbox" id="remember-login" style="margin:0">
+          <label for="remember-login" style="font-size:13px;color:var(--text-light);cursor:pointer;user-select:none">记住登录状态</label>
+        </div>
+        <button class="btn" id="login-btn" onclick="doLogin()" style="width:100%">登录</button>
+        <div id="login-msg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- 管理面板（登录后显示） -->
+    <div id="admin-panel" style="display:none">
+      <div class="admin-layout">
+        <aside class="admin-sidebar" aria-label="后台功能导航">
+          <div class="admin-sidebar-title">后台管理</div>
+          <nav class="admin-sidebar-nav">
+            <a href="#stats-panel" data-admin-tab="stats">数据概览</a>
+            <a href="#account-panel" data-admin-tab="account">账号管理</a>
+            <a href="#content-panel" data-admin-tab="content">内容管理</a>
+            <a href="#book-list-panel" data-admin-tab="books">书籍管理</a>
+            <a href="#category-panel" data-admin-tab="category">分类管理</a>
+            <a href="#chapter-panel" data-admin-tab="chapters">章节管理</a>
+            <a href="#annotation-panel" data-admin-tab="annotation">批注管理</a>
+            <a href="#system-panel" data-admin-tab="system">系统设置</a>
+          </nav>
+        </aside>
+        <main class="admin-content">
+
+      <!-- 数据概览 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="stats" id="stats-panel">
+        <h3>📊 数据概览</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px" id="stats-grid">
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-books">-</div>
+            <div style="font-size:13px;color:var(--text-light)">书籍</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-chapters">-</div>
+            <div style="font-size:13px;color:var(--text-light)">章节</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-words">-</div>
+            <div style="font-size:13px;color:var(--text-light)">总字数</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-pv">-</div>
+            <div style="font-size:13px;color:var(--text-light)">今日访问</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-uv">-</div>
+            <div style="font-size:13px;color:var(--text-light)">今日访客</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg);border-radius:var(--radius)">
+            <div style="font-size:28px;font-weight:700;color:var(--accent)" id="stat-total-pv">-</div>
+            <div style="font-size:13px;color:var(--text-light)">累计访问</div>
+          </div>
+        </div>
+        <!-- 热门书籍 -->
+        <div id="hot-books" style="margin-top:16px"></div>
+      </div>
+
+      <!-- 账号管理 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="account" id="account-panel">
+        <h3>👤 账号管理</h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <span>当前用户：<strong id="current-user"></strong></span>
+          <a href="#" onclick="showChangePassword();return false" style="font-size:13px">修改密码</a>
+          <a href="#" onclick="doLogout();return false" style="font-size:13px;color:var(--danger,#e74c3c)">退出登录</a>
+          <a href="#" id="deactivate-account-btn" onclick="deactivateAccount();return false" style="display:none;font-size:13px;color:var(--danger,#e74c3c)">注销账号</a>
+        </div>
+        <div id="pwd-form" style="display:none">
+          <div class="form-group">
+            <label>旧密码</label>
+            <input type="password" id="old-pwd" placeholder="输入当前密码">
+          </div>
+          <div class="form-group">
+            <label>新密码（至少8位，需包含字母和数字）</label>
+            <input type="password" id="new-pwd" placeholder="输入新密码">
+          </div>
+          <div class="form-group">
+            <label>确认新密码</label>
+            <input type="password" id="new-pwd2" placeholder="再次输入新密码">
+          </div>
+          <button class="btn" onclick="doChangePassword()">确认修改</button>
+          <button class="btn btn-sm" onclick="document.getElementById('pwd-form').style.display='none'" style="margin-left:8px">取消</button>
+          <div id="pwd-msg" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- 站点设置 -->
+      <div class="admin-section admin-tab-panel super-admin-only" data-admin-group="system" id="system-panel" style="display:none">
+        <h3>⚙️ 站点设置</h3>
+        <div class="form-group">
+          <label>站点名称</label>
+          <input type="text" id="set-site-name" placeholder="如：xingzihai的书架" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>站点描述</label>
+          <input type="text" id="set-site-desc" placeholder="一句话介绍你的小说站" maxlength="200">
+        </div>
+        <div class="form-group">
+          <label>页脚文字</label>
+          <input type="text" id="set-footer" placeholder="如：Powered by Cloudflare" maxlength="200">
+        </div>
+        <button class="btn" onclick="saveSettings()">保存设置</button>
+        <div id="settings-msg"></div>
+      </div>
+
+      <!-- TXT导入 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="content" id="content-panel">
+        <h3>📥 TXT 导入</h3>
+        <div class="form-group">
+          <label>导入方式</label>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer">
+              <input type="radio" name="import-mode" value="new" checked> 创建新书并导入
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer">
+              <input type="radio" name="import-mode" value="existing"> 导入到已有书籍
+            </label>
+          </div>
+        </div>
+        <div id="import-new-book-info" class="form-group" style="padding:12px;background:var(--card-bg, var(--bg));border:1px solid var(--border);border-radius:var(--radius)">
+          <div class="form-group" style="margin-bottom:8px">
+            <label>书名 *</label>
+            <input type="text" id="import-book-title" placeholder="留空则使用文件名" maxlength="200">
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label>作者</label>
+            <input type="text" id="import-book-author" placeholder="作者" maxlength="100">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>简介</label>
+            <textarea id="import-book-desc" placeholder="简介" style="min-height:60px" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <div id="import-existing-book" style="display:none">
+          <div class="form-group">
+            <label>选择目标书籍 *</label>
+            <select id="import-book"><option value="">加载中...</option></select>
+          </div>
+          <div class="form-group">
+            <label>插入位置</label>
+            <select id="import-position" onchange="toggleInsertSelect('import-after-chapter', this.value)">
+              <option value="append">追加到已有章节末尾</option>
+              <option value="after">插入到指定章节之后</option>
+            </select>
+            <select id="import-after-chapter" style="display:none;margin-top:6px"><option value="">请先选择书籍</option></select>
+            <div style="font-size:12px;color:var(--text-light);margin-top:4px">选择「插入到指定章节之后」时，后面已有章节会自动顺延序号，可用于补更中间缺漏的章节。</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>选择 TXT 文件（支持 UTF-8 / GBK 编码，最大 50MB）</label>
+          <input type="file" id="import-file" accept=".txt,.text" style="padding:8px 0">
+        </div>
+        <div id="import-preview" style="display:none">
+          <div class="form-group">
+            <label>章节分割预览（可取消勾选不需要的章节）</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+              <button class="btn btn-sm" type="button" onclick="setAllChapters('txt', true)">全选</button>
+              <button class="btn btn-sm" type="button" onclick="setAllChapters('txt', false)">全不选</button>
+              <button class="btn btn-sm" type="button" onclick="invertChapters('txt')">反选</button>
+              <button class="btn btn-sm" type="button" id="split-merged-btn" style="display:none" onclick="splitMergedChapters()">拆开粘连章节</button>
+            </div>
+            <div id="import-chapters" class="admin-list" style="max-height:300px;overflow-y:auto"></div>
+            <div style="font-size:13px;color:var(--text-light);margin-top:6px">
+              已选 <span id="import-total">0</span> 章 / 共 <span id="import-all-total">0</span> 章，<span id="import-words">0</span> 字<span id="import-merged-hint" style="color:#e74c3c"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>目标书籍</label>
+            <div id="import-target-hint" style="font-size:13px;color:var(--text-light)"></div>
+          </div>
+          <div class="import-progress" style="display:none">
+            <div style="background:var(--bg-secondary);border-radius:10px;overflow:hidden;height:20px;margin:12px 0">
+              <div id="import-bar" style="height:100%;background:var(--primary);border-radius:10px;transition:width 0.3s;width:0%"></div>
+            </div>
+            <div id="import-status" style="font-size:13px;color:var(--text-light)"></div>
+          </div>
+          <button class="btn" onclick="startImport()">开始导入</button>
+          <button class="btn btn-sm" onclick="cancelImport()" style="margin-left:8px">取消</button>
+        </div>
+        <div id="import-msg"></div>
+      </div>
+
+      <!-- EPUB导入 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="content" id="content-panel-epub">
+        <h3>📖 EPUB 导入</h3>
+        <div class="form-group">
+          <label>导入方式</label>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer">
+              <input type="radio" name="epub-import-mode" value="new" checked> 创建新书并导入
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer">
+              <input type="radio" name="epub-import-mode" value="existing"> 补充导入到已有书籍
+            </label>
+          </div>
+        </div>
+        <div id="epub-existing-book" style="display:none" class="form-group">
+          <label>选择目标书籍 *</label>
+          <select id="epub-book-select"><option value="">加载中...</option></select>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px">
+            标题与已有章节相同的章节会标记「已存在」并默认跳过，可手动重新勾选后追加。
+          </div>
+          <label style="margin-top:10px">插入位置</label>
+          <select id="epub-position" onchange="toggleInsertSelect('epub-after-chapter', this.value)">
+            <option value="append">追加到已有章节末尾</option>
+            <option value="after">插入到指定章节之后</option>
+          </select>
+          <select id="epub-after-chapter" style="display:none;margin-top:6px"><option value="">请先选择书籍</option></select>
+        </div>
+        <div class="form-group">
+          <label>选择 EPUB 文件（最大 50MB）</label>
+          <input type="file" id="epub-file" accept=".epub" style="padding:8px 0">
+        </div>
+        <div id="epub-parsing-msg" style="display:none;padding:12px;background:var(--bg);border-radius:var(--radius);color:var(--text-light);font-size:14px">
+          ⏳ 正在解析 EPUB 文件...
+        </div>
+        <div id="epub-preview" style="display:none">
+          <div id="epub-new-book-info" style="padding:12px;background:var(--card-bg, var(--bg));border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px">
+            <div class="form-group" style="margin-bottom:8px">
+              <label>书名</label>
+              <input type="text" id="epub-book-title" placeholder="书名" maxlength="200">
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label>作者</label>
+              <input type="text" id="epub-book-author" placeholder="作者" maxlength="100">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>简介</label>
+              <textarea id="epub-book-desc" placeholder="简介" style="min-height:60px" maxlength="2000"></textarea>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>章节列表（可取消勾选不需要的章节，可编辑标题）</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+              <button class="btn btn-sm" type="button" onclick="setAllChapters('epub', true)">全选</button>
+              <button class="btn btn-sm" type="button" onclick="setAllChapters('epub', false)">全不选</button>
+              <button class="btn btn-sm" type="button" onclick="invertChapters('epub')">反选</button>
+              <button class="btn btn-sm" type="button" onclick="setAllChapters('epub', true, true)">仅选新章节</button>
+              <button class="btn btn-sm" type="button" id="epub-split-merged-btn" style="display:none" onclick="splitMergedChapters('epub')">拆开粘连章节</button>
+            </div>
+            <div id="epub-chapters" class="admin-list" style="max-height:400px;overflow-y:auto"></div>
+            <div style="font-size:13px;color:var(--text-light);margin-top:6px">
+              已选 <span id="epub-total">0</span> 章 / 共 <span id="epub-all-total">0</span> 章，<span id="epub-words">0</span> 字<span id="epub-dup-hint" style="color:#e67e22"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>目标书籍</label>
+            <div id="epub-target-hint" style="font-size:13px;color:var(--text-light)"></div>
+          </div>
+          <div class="import-progress" id="epub-progress" style="display:none">
+            <div style="background:var(--bg-secondary,var(--border));border-radius:10px;overflow:hidden;height:20px;margin:12px 0">
+              <div id="epub-bar" style="height:100%;background:var(--primary,var(--accent));border-radius:10px;transition:width 0.3s;width:0%"></div>
+            </div>
+            <div id="epub-status" style="font-size:13px;color:var(--text-light)"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="startEpubImport()">开始导入</button>
+            <button class="btn btn-sm" onclick="cancelEpubImport()">取消</button>
+          </div>
+        </div>
+        <div id="epub-msg"></div>
+      </div>
+
+      <!-- 创建书籍 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="books" id="book-panel">
+        <h3>📖 创建新书</h3>
+        <div class="form-group">
+          <label>书名 *</label>
+          <input type="text" id="book-title" placeholder="输入书名" maxlength="200">
+        </div>
+        <div class="form-group">
+          <label>作者</label>
+          <input type="text" id="book-author" placeholder="输入作者名" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>简介</label>
+          <textarea id="book-desc" placeholder="输入书籍简介" style="min-height:80px" maxlength="2000"></textarea>
+        </div>
+        <div class="form-group">
+          <label>标签</label>
+          <div id="create-book-tags" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <button class="btn" onclick="createBook()">创建书籍</button>
+        <div id="book-msg"></div>
+      </div>
+
+      <!-- 书籍管理 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="books" id="book-list-panel">
+        <h3>📚 书籍管理</h3>
+        <div id="admin-category-filter" class="admin-category-filter" aria-label="书籍分类筛选"></div>
+        <ul class="admin-list" id="book-list"><li class="loading">加载中...</li></ul>
+      </div>
+
+      <!-- 分类管理 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="category" id="category-panel">
+        <h3>🏷️ 书目分类</h3>
+        <p style="color:var(--text-light);font-size:14px;margin-bottom:12px">创建分类后，可在创建或编辑书籍时为书籍分配分类；首页会自动显示分类侧边栏。</p>
+        <div class="category-create-row">
+          <input type="text" id="category-name" placeholder="例如：现代言情" maxlength="30">
+          <input type="color" id="category-color" value="#3498db" title="分类颜色">
+          <button class="btn btn-sm" id="create-category-btn">+ 创建分类</button>
+        </div>
+        <div id="category-msg"></div>
+        <div id="category-list" class="category-management-list"><span class="category-empty">暂无分类，请先创建一个。</span></div>
+      </div>
+
+      <!-- 批注管理入口 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="annotation" id="annotation-panel">
+        <h3>📝 批注管理</h3>
+        <p style="color:var(--text-light);font-size:14px;margin-bottom:12px">管理读者批注、处理举报、查看统计</p>
+        <button class="btn" onclick="window.open('/annotation-admin.html', '_blank')">打开批注管理</button>
+      </div>
+
+      <!-- 书籍编辑弹窗 -->
+      <div class="settings-overlay" id="book-edit-overlay">
+        <div class="settings-panel" style="max-width:500px;border-radius:var(--radius)">
+          <h3>编辑书籍<button class="close-btn" id="close-book-edit">✕</button></h3>
+          <input type="hidden" id="edit-book-id">
+          <div class="form-group">
+            <label>书名</label>
+            <input type="text" id="edit-book-title" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>作者</label>
+            <input type="text" id="edit-book-author" maxlength="100">
+          </div>
+          <div class="form-group">
+            <label>简介</label>
+            <textarea id="edit-book-desc" style="min-height:60px" maxlength="2000"></textarea>
+          </div>
+          <div class="form-group">
+            <label>封面图片（JPG/JPEG、PNG、WebP、GIF、AVIF，最大5MB）</label>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div id="edit-cover-preview" style="width:80px;height:107px;border:1px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg)">
+                <span style="color:var(--text-light);font-size:12px">无封面</span>
+              </div>
+              <div>
+                <input type="file" id="edit-cover-file" accept=".jpg,.jpeg,.png,.webp,.gif,.avif,image/jpeg,image/png,image/webp,image/gif,image/avif" style="font-size:13px;margin-bottom:6px">
+                <button class="btn btn-sm" type="button" id="choose-cover-btn">选择封面文件</button>
+                <div><button class="btn btn-sm btn-danger" id="remove-cover-btn" style="display:none">删除封面</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>标签</label>
+            <div id="edit-book-tags" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            <div id="edit-tag-actions" style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input type="text" id="inline-tag-name" placeholder="新标签名" maxlength="30" style="width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px">
+              <input type="color" id="inline-tag-color" value="#3498db" style="width:30px;height:26px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;padding:1px">
+              <button class="btn btn-sm" id="inline-create-tag-btn">+ 新标签</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="edit-annotation-enabled" style="width:auto;margin:0">
+              允许读者批注
+            </label>
+          </div>
+          <button class="btn" id="save-book-edit-btn">保存</button>
+        </div>
+      </div>
+
+      <!-- 章节拆分弹窗 -->
+      <div class="settings-overlay" id="split-overlay">
+        <div class="settings-panel" style="max-width:720px;max-height:88vh;border-radius:var(--radius)">
+          <h3>拆分为多章<button class="close-btn" id="close-split">✕</button></h3>
+          <input type="hidden" id="split-chapter-id">
+          <div id="split-intro" style="font-size:13px;color:var(--text-light);margin-bottom:10px"></div>
+          <div class="form-group">
+            <label>正文（可手动调整，拆分只影响最终提交的结果）</label>
+            <textarea id="split-content" style="min-height:180px;font-family:inherit"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <button class="btn btn-sm" type="button" onclick="autoSplitChapter()">按章节标题自动拆分</button>
+            <button class="btn btn-sm" type="button" onclick="splitByMarker()">按分隔线（----）拆分</button>
+            <button class="btn btn-sm" type="button" onclick="resetSplitParts()">重置为整章</button>
+          </div>
+          <div class="form-group">
+            <label>拆分结果（可修改每章标题）</label>
+            <div id="split-parts" class="admin-list" style="max-height:280px;overflow-y:auto"></div>
+            <div id="split-hint" style="font-size:13px;color:var(--text-light);margin-top:6px"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="confirm-split-btn" onclick="confirmSplit()">确认拆分</button>
+            <button class="btn btn-sm" onclick="closeSplitOverlay()">取消</button>
+          </div>
+          <div id="split-msg"></div>
+        </div>
+      </div>
+
+      <!-- 添加章节 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="chapters" id="add-chapter-panel">
+        <h3>📝 添加章节</h3>
+        <div class="form-group">
+          <label>选择书籍 *</label>
+          <select id="chapter-book"><option value="">加载中...</option></select>
+        </div>
+        <div class="form-group">
+          <label>章节标题 *</label>
+          <input type="text" id="chapter-title" placeholder="如：第一章 初入江湖" maxlength="200">
+        </div>
+        <div class="form-group">
+          <label>章节内容 *</label>
+          <textarea id="chapter-content" placeholder="在此输入章节正文..."></textarea>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px">字数：<span id="word-count">0</span></div>
+        </div>
+        <button class="btn" onclick="createChapter()">发布章节</button>
+        <div id="chapter-msg"></div>
+      </div>
+
+      <!-- 章节管理 -->
+      <div class="admin-section admin-tab-panel" data-admin-group="chapters" id="chapter-panel">
+        <h3>📄 章节管理</h3>
+        <div class="form-group">
+          <label>选择书籍</label>
+          <select id="manage-book"><option value="">选择书籍...</option></select>
+        </div>
+        <div id="batch-bar" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;gap:12px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="select-all">全选</label>
+          <span style="font-size:13px;color:var(--text-light)" id="selected-count">已选 0 章</span>
+          <button class="btn btn-danger btn-sm" onclick="batchDelete()">批量删除</button>
+        </div>
+        <ul class="admin-list" id="chapter-list"></ul>
+        <div style="margin-top:8px" id="export-area"></div>
+        <div id="manage-msg"></div>
+      </div>
+
+      <!-- 自定义字体管理 -->
+      <div class="admin-section admin-tab-panel super-admin-only" data-admin-group="system" style="display:none">
+        <h3>🔤 自定义字体</h3>
+        <div class="form-group">
+          <label>上传 .woff2 字体文件（最大10MB）</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="file" id="font-file" accept=".woff2" style="padding:8px 0;flex:1">
+            <button class="btn" onclick="uploadFont()">上传</button>
+          </div>
+        </div>
+        <ul class="admin-list" id="font-list"><li style="color:var(--text-light)">加载中...</li></ul>
+        <div id="font-msg"></div>
+      </div>
+
+      <!-- 数据备份与恢复 -->
+      <div class="admin-section admin-tab-panel super-admin-only" data-admin-group="system" style="display:none">
+        <h3>💾 数据备份与恢复</h3>
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:12px">导出全站数据（书籍+章节正文+设置）为 JSON 文件，或从备份文件恢复。</p>
+        <div class="backup-actions">
+          <button class="btn" id="backup-btn" onclick="exportBackup()">导出备份</button>
+          <label class="btn" id="restore-label" style="cursor:pointer;background:var(--accent-dark)">
+            导入恢复
+            <input type="file" id="restore-file" accept=".json" style="display:none">
+          </label>
+          <button class="btn btn-cancel" id="backup-cancel" onclick="cancelBackup()" style="display:none">取消</button>
+        </div>
+        <div id="backup-progress" style="display:none;margin-top:12px">
+          <div class="backup-progress-track">
+            <div id="backup-bar" class="backup-progress-bar" style="width:0%"></div>
+          </div>
+          <div class="backup-progress-meta">
+            <span id="backup-status">准备中…</span>
+            <span id="backup-percent">0%</span>
+          </div>
+        </div>
+        <div id="backup-msg"></div>
+      </div>
+
+      <!-- 管理员管理（仅超管可见） -->
+      <div class="admin-section admin-tab-panel super-admin-only" data-admin-group="system" style="display:none">
+        <h3>👥 用户管理</h3>
+        <div id="admin-users-list" style="margin-bottom:12px"></div>
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:14px;color:var(--accent)">+ 添加用户</summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:8px;align-items:end">
+            <div>
+              <label style="font-size:12px;color:var(--text-light)">用户名</label>
+              <input type="text" id="new-admin-user" placeholder="字母数字下划线" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text)">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text-light)">密码</label>
+              <input type="password" id="new-admin-pass" placeholder="至少8位" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text)">
+            </div>
+            <button class="btn" onclick="createAdmin()">创建</button>
+          </div>
+          <div style="margin-top:4px">
+            <label style="font-size:12px;color:var(--text-light)">用户类型：</label>
+            <select id="new-admin-role" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:13px">
+              <option value="reader">普通用户</option>
+              <option value="admin">管理员</option>
+              <option value="super_admin">超级管理员</option>
+            </select>
+          </div>
+          <div id="new-reader-email-wrap" style="margin-top:4px">
+            <label style="font-size:12px;color:var(--text-light)">邮箱（普通用户必填）</label>
+            <input type="email" id="new-reader-email" placeholder="user@example.com" style="width:260px;max-width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text)">
+          </div>
+          <div style="margin-top:4px">
+            <label style="font-size:12px;color:var(--text-light)">
+              <input type="checkbox" id="new-admin-pwd-lock"> 禁止修改密码
+            </label>
+          </div>
+          <div id="admin-user-msg"></div>
+        </details>
+      </div>
+        </main>
+      </div>
+
+    </div><!-- /admin-panel -->
+  </div>
+
+  <script>
+    // 主题：由 theme.js 统一管理
+
+    // ===== 认证 =====
+    let authToken = ''; // token不再存localStorage，由cookie自动携带
+    let currentRole = localStorage.getItem('auth_role') || sessionStorage.getItem('auth_role') || '';
+    let currentUserId = Number(localStorage.getItem('auth_uid') || sessionStorage.getItem('auth_uid')) || 0;
+    let currentPasswordLocked = false;
+    // 记住登录偏好
+    let rememberLogin = localStorage.getItem('remember_login') === 'true';
+
+    function saveAuth(token, role, uid) {
+      authToken = token; currentRole = role; currentUserId = uid;
+      const store = rememberLogin ? localStorage : sessionStorage;
+      store.setItem('auth_role', role);
+      store.setItem('auth_uid', uid);
+      // 清理另一个存储
+      const other = rememberLogin ? sessionStorage : localStorage;
+      other.removeItem('auth_role'); other.removeItem('auth_uid');
+      // 清理旧的token存储
+      localStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_token');
+    }
+    function clearAuth() {
+      authToken = ''; currentRole = ''; currentUserId = 0;
+      ['auth_token','auth_role','auth_uid'].forEach(k => { localStorage.removeItem(k); sessionStorage.removeItem(k); });
+    }
+
+    function getToken() { return authToken; }
+
+    // 初始化登录表单
+    (function initLoginForm() {
+      const rememberCb = document.getElementById('remember-login');
+      rememberCb.checked = rememberLogin;
+      rememberCb.addEventListener('change', () => {
+        rememberLogin = rememberCb.checked;
+        localStorage.setItem('remember_login', rememberLogin);
+      });
+      // 恢复上次用户名
+      const lastUser = localStorage.getItem('last_username');
+      if (lastUser) document.getElementById('login-user').value = lastUser;
+    })();
+
+    // 页面加载时检查 GitHub OAuth 回调 + 检查是否启用
+    (function handleGitHubCallback() {
+      const hash = location.hash;
+      if (hash.startsWith('#github_login=success')) {
+        // GitHub OAuth 成功，token已通过HttpOnly Cookie设置
+        rememberLogin = true;
+        localStorage.setItem('remember_login', 'true');
+        history.replaceState(null, '', location.pathname);
+        checkSession();
+      } else if (hash.startsWith('#github_error=')) {
+        const error = decodeURIComponent(hash.slice('#github_error='.length));
+        history.replaceState(null, '', location.pathname);
+        setTimeout(() => showMsg('login-msg', 'GitHub 登录失败：' + error, 'error'), 100);
+      }
+    })();
+
+    async function doLogin() {
+      const username = document.getElementById('login-user').value.trim();
+      const password = document.getElementById('login-pass').value;
+      if (!username || !password) return showMsg('login-msg','请输入用户名和密码','error');
+      const loginBtn = document.getElementById('login-btn');
+      loginBtn.disabled = true;
+      loginBtn.textContent = '登录中...';
+      try {
+        const res = await fetch('/api/auth?action=login', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({username, password}),
+          credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (!['super_admin', 'admin', 'demo'].includes(data.role)) {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store'
+          });
+          throw new Error('普通用户请从首页登录，不能进入管理后台');
+        }
+        localStorage.setItem('last_username', username);
+        saveAuth('', data.role || 'demo', data.userId || 0);
+        showAdminPanel(data.username, currentRole);
+      } catch(e) {
+        document.getElementById('login-pass').value = '';
+        showMsg('login-msg', e.message, 'error');
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登录';
+      }
+    }
+
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/auth?action=me', {
+          credentials: 'same-origin'
+        });
+        if (!res.ok) { clearAuth(); return false; }
+        const data = await res.json();
+        if (data.authenticated) { currentPasswordLocked = !!data.passwordLocked; saveAuth('', data.role || 'demo', data.userId || 0); showAdminPanel(data.username, currentRole); return true; }
+      } catch {}
+      clearAuth();
+      return false;
+    }
+
+    function showAdminPanel(username, role) {
+      document.getElementById('login-panel').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      document.getElementById('current-user').textContent = username;
+      document.getElementById('user-info').textContent = username + (role === 'super_admin' ? ' (超管)' : role === 'admin' ? ' (管理)' : ' (演示)');
+      document.getElementById('user-info').style.display = 'inline';
+      // 密码锁定或demo角色：隐藏修改密码链接
+      const pwdLink = document.querySelector('a[onclick*="showChangePassword"]');
+      if (pwdLink) pwdLink.style.display = (currentPasswordLocked || role === 'demo') ? 'none' : '';
+      // super_admin专属功能
+      const saEls = document.querySelectorAll('.super-admin-only');
+      saEls.forEach(el => el.style.display = role === 'super_admin' ? '' : 'none');
+      const systemTab = document.querySelector('[data-admin-tab="system"]');
+      if (systemTab) systemTab.style.display = role === 'super_admin' ? '' : 'none';
+      // demo用户显示注销按钮
+      const deactivateBtn = document.getElementById('deactivate-account-btn');
+      if (deactivateBtn) deactivateBtn.style.display = role === 'demo' ? '' : 'none';
+      refreshAllBooks(); loadSettings(); loadStats(); loadFontList();
+      loadTagList().then(() => {
+        renderCreateBookTags();
+        renderAdminCategoryFilter();
+        renderCategoryManager();
+        if (_booksCache.length) renderBookList({ books: _booksCache });
+      });
+      const activateAdminTab = tab => {
+        const selectedTab = document.querySelector(`[data-admin-tab="${tab}"]`);
+        if (!selectedTab || selectedTab.style.display === 'none') tab = 'stats';
+        document.querySelectorAll('.admin-sidebar-nav a').forEach(item => {
+          item.classList.toggle('active', item.dataset.adminTab === tab);
+        });
+        document.querySelectorAll('.admin-tab-panel').forEach(panel => {
+          const active = panel.dataset.adminGroup === tab;
+          panel.classList.toggle('is-active', active);
+          if (!active) panel.style.display = 'none';
+          else if (!panel.classList.contains('super-admin-only') || role === 'super_admin') panel.style.display = '';
+        });
+        history.replaceState(null, '', '#' + (document.querySelector(`[data-admin-tab="${tab}"]`)?.getAttribute('href') || '#stats-panel').slice(1));
+      };
+      document.querySelectorAll('.admin-sidebar-nav a').forEach(link => {
+        link.onclick = event => {
+          event.preventDefault();
+          activateAdminTab(link.dataset.adminTab);
+        };
+      });
+      const initialTab = [...document.querySelectorAll('.admin-sidebar-nav a')]
+        .find(link => link.getAttribute('href') === location.hash)?.dataset.adminTab || 'stats';
+      activateAdminTab(initialTab);
+      if (role === 'super_admin') { loadAdminUsers(); }
+    }
+
+    async function doLogout() {
+      try {
+        await fetch('/api/auth/logout', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          credentials:'same-origin',
+          cache:'no-store'
+        });
+      } catch{}
+      clearAuth();
+      location.replace('/?logged_out=' + Date.now());
+    }
+
+    async function deactivateAccount() {
+      if (!confirm('⚠️ 确定要注销账号吗？\n\n• 您创建的书籍和章节将转交给管理员保管\n• 此操作不可恢复！')) return;
+      if (!confirm('再次确认：注销后无法恢复，确定继续？')) return;
+      try {
+        const res = await fetch('/api/admin/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        alert('账号已注销。感谢使用！');
+        doLogout();
+      } catch (e) { alert('注销失败：' + e.message); }
+    }
+
+    function showChangePassword() {
+      if (currentPasswordLocked) { alert('该账号不允许修改密码'); return; }
+      document.getElementById('pwd-form').style.display = 'block';
+    }
+
+    async function doChangePassword() {
+      const oldPwd = document.getElementById('old-pwd').value;
+      const newPwd = document.getElementById('new-pwd').value;
+      const newPwd2 = document.getElementById('new-pwd2').value;
+      if (!oldPwd || !newPwd) return showMsg('pwd-msg','请填写所有字段','error');
+      if (newPwd !== newPwd2) return showMsg('pwd-msg','两次输入的新密码不一致','error');
+      if (newPwd.length < 8) return showMsg('pwd-msg','新密码至少8位','error');
+      if (!/[a-zA-Z]/.test(newPwd)||!/\d/.test(newPwd)) return showMsg('pwd-msg','新密码需包含字母和数字','error');
+      try {
+        const res = await api('POST','/api/auth?action=password',{oldPassword:oldPwd,newPassword:newPwd});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('pwd-msg','密码已修改，请重新登录','success');
+        // 清除所有认证状态并跳转到登录页
+        setTimeout(() => {
+          clearAuth();
+          sessionStorage.clear();
+          localStorage.removeItem('last_username');
+          localStorage.removeItem('remember_login');
+          window.location.href = '/admin.html';
+        }, 2000);
+      } catch(e) { showMsg('pwd-msg',e.message,'error'); }
+    }
+
+    // 页面加载时检查session
+    checkSession();
+
+    // ===== 站点设置 =====
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        const s = data.settings || {};
+        document.getElementById('set-site-name').value = s.site_name || '';
+        document.getElementById('set-site-desc').value = s.site_desc || '';
+        document.getElementById('set-footer').value = s.footer_text || '';
+        if (s.site_name) document.querySelector('.navbar h1 a').textContent = s.site_name;
+      } catch {}
+    }
+    async function saveSettings() {
+      const settings = {
+        site_name: document.getElementById('set-site-name').value.trim(),
+        site_desc: document.getElementById('set-site-desc').value.trim(),
+        footer_text: document.getElementById('set-footer').value.trim(),
+      };
+      try {
+        const res = await api('PUT','/api/admin/settings',{settings});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('settings-msg','设置已保存','success');
+        document.querySelector('.navbar h1 a').textContent = settings.site_name || '书间';
+      } catch(e) { showMsg('settings-msg',e.message,'error'); }
+    }
+
+    // ===== TXT导入 =====
+    // 章节正则v3：修复上中下篇误匹配、Part罗马数字过宽、连续标题丢弃、前言丢失
+    const CHAPTER_REGEX = /^[^\S\n\r]*(?:(?:正文|上卷|下卷|[上中下]册|卷[零〇一二三四五六七八九十百千\d]+)\s+)?(?:[【\[「]?第[零〇一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟\d]+[章节回卷集部篇幕话][】\]」]?(?=[\s:：\-—,，.。!！?？、）)\]】」}\d~～·]|$)|(?:chapter|CHAPTER|Chapter)\s+\d+|Part\s+(?:\d+|[IVXLCDM]+|[ivxlcdm]+)|[上中下]篇(?=[\s:：\-—]|$)|(?:序[章言幕]|楔子|尾声|番外(?:[篇：: \d一二三四五六七八九十]*)|后记|前言|引[子言]|附录|终章|大结局)(?=[\s:：\-—]|$)(?![\u4e00-\u9fff]))[^\S\n\r]*[:：\-—~～·|｜]*[^\S\n\r]*[^\n\r]{0,100}$/gm;
+    let parsedChapters = [];
+
+    function decodeText(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes[0]===0xEF&&bytes[1]===0xBB&&bytes[2]===0xBF) return new TextDecoder('utf-8').decode(buffer);
+      if (bytes[0]===0xFF&&bytes[1]===0xFE) return new TextDecoder('utf-16le').decode(buffer);
+      if (bytes[0]===0xFE&&bytes[1]===0xFF) return new TextDecoder('utf-16be').decode(buffer);
+      const utf8 = new TextDecoder('utf-8',{fatal:false}).decode(buffer);
+      if (!utf8.includes('\uFFFD')) return utf8;
+      try { return new TextDecoder('gbk').decode(buffer); } catch{}
+      return utf8;
+    }
+    function splitChapters(text) {
+      if (!text || text.length > 50 * 1024 * 1024) return null;
+      const normalized = text.replace(/\r\n?/g, '\n');
+      const lines = normalized.split('\n');
+      const chapters = [];
+      let curTitle = null, curContent = [], preContent = [];
+
+      for (const line of lines) {
+        const trimmed = line.replace(/^[\s\u3000]+/,'').replace(/[\s\u3000]+$/,'');
+        CHAPTER_REGEX.lastIndex = 0;
+        if (trimmed && CHAPTER_REGEX.test(trimmed) && trimmed.length <= 120) {
+          if (curTitle !== null) {
+            const content = curContent.join('\n').trim();
+            chapters.push({title:curTitle, content, checked:true});
+          } else if (preContent.length > 0) {
+            const pre = preContent.join('\n').trim();
+            if (pre) chapters.push({title:'前言', content:pre, checked:true});
+          }
+          curTitle = trimmed.substring(0, 120);
+          curContent = [];
+        } else if (curTitle !== null) {
+          curContent.push(line);
+        } else {
+          preContent.push(line);
+        }
+      }
+      // 最后一章（即使无正文也保留）
+      if (curTitle !== null) {
+        const content = curContent.join('\n').trim();
+        chapters.push({title:curTitle, content, checked:true});
+      } else if (preContent.length > 0) {
+        const pre = preContent.join('\n').trim();
+        if (pre) chapters.push({title:'前言', content:pre, checked:true});
+      }
+
+      return chapters.length > 0 ? chapters : null;
+    }
+    function splitBySize(text,size=5000) {      const chapters=[]; const paras=text.split(/\n\s*\n/);
+      let cur='',idx=1;
+      for (const p of paras) {
+        if (cur.length+p.length>size&&cur.length>0) {
+          chapters.push({title:`第${idx}章`,content:cur.trim(),checked:true});
+          idx++; cur=p;
+        } else { cur+=(cur?'\n\n':'')+p; }
+      }
+      if (cur.trim()) chapters.push({title:`第${idx}章`,content:cur.trim(),checked:true});
+      return chapters;
+    }
+    document.getElementById('import-file').addEventListener('change',async function(){
+      const file=this.files[0]; if(!file) return;
+      if (file.size>50*1024*1024) return showMsg('import-msg','文件超过50MB限制','error');
+      showMsg('import-msg','正在解析文件...','');
+      try {
+        const buffer=await file.arrayBuffer();
+        const text=decodeText(buffer);
+        lastTxtFilename = file.name.replace(/\.(txt|text)$/i,'');
+        if (getTxtImportMode()==='new' && !document.getElementById('import-book-title').value.trim()) {
+          document.getElementById('import-book-title').value = lastTxtFilename.substring(0,200);
+        }
+        parsedChapters=splitChapters(text);
+        if (!parsedChapters) {
+          if (confirm('未检测到章节标记，是否按每5000字自动分割？')) {
+            parsedChapters=splitBySize(text);
+          } else {
+            parsedChapters=[{title:lastTxtFilename,content:text.trim(),checked:true}];
+          }
+        }
+        markMergedChapters();
+        renderImportPreview();
+        updateTxtTargetHint();
+        showMsg('import-msg','','');
+      } catch(e) { showMsg('import-msg','文件解析失败：'+e.message,'error'); }
+    });
+    function renderImportPreview() {
+      const el=document.getElementById('import-chapters');
+      el.innerHTML=parsedChapters.map((c,i)=>`
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" ${c.checked?'checked':''} data-idx="${i}" class="import-check">
+            <input type="text" value="${esc(c.title)}" data-idx="${i}" maxlength="200" class="import-title-edit" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:14px;background:var(--bg);color:var(--text)">
+            ${c._merged ? '<span style="font-size:11px;color:#e74c3c;background:#fde8e8;padding:1px 6px;border-radius:3px;white-space:nowrap">疑似粘连</span>' : ''}
+            <span style="font-size:12px;color:var(--text-light);white-space:nowrap">${c.content.length} 字</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;padding-left:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.content.slice(0,120))}</div>
+        </div>
+      `).join('');
+      updateTxtStats();
+      document.getElementById('import-preview').style.display='block';
+    }
+    function updateTxtStats() {
+      const checked=parsedChapters.filter(c=>c.checked);
+      document.getElementById('import-total').textContent=checked.length;
+      document.getElementById('import-all-total').textContent=parsedChapters.length;
+      document.getElementById('import-words').textContent=checked.reduce((s,c)=>s+c.content.length,0).toLocaleString();
+      const merged=parsedChapters.filter(c=>c._merged).length;
+      const hint=document.getElementById('import-merged-hint');
+      if (hint) {
+        hint.textContent = merged ? ` · ${merged} 章正文里还有章节标题（可能粘连），可点「拆开粘连章节」` : '';
+      }
+      const btn=document.getElementById('split-merged-btn');
+      if (btn) btn.style.display = merged ? '' : 'none';
+    }
+
+    // 标题前缀识别（不要求整行都是标题，用来发现正文夹着的下一章标题）
+    const CH_TITLE_START = new RegExp(CHAPTER_REGEX.source.replace('[^\\n\\r]{0,100}$', ''), 'm');
+    function looksLikeChapterTitle(line) {
+      const t = (line || '').replace(/^[\s\u3000]+/,'').replace(/[\s\u3000]+$/,'');
+      if (!t || t.length > 120) return false;
+      CH_TITLE_START.lastIndex = 0;
+      return CH_TITLE_START.test(t);
+    }
+
+    // 检测「一章正文里还夹着别的章节标题」——即 185、186 章粘在一起的情况
+    function findMergedChapterIndexes(list) {
+      const idxs = [];
+      list.forEach((c, i) => {
+        if (!c.content) return;
+        const own = normalizeTitle(c.title);
+        for (const line of c.content.split('\n')) {
+          if (!looksLikeChapterTitle(line)) continue;
+          if (normalizeTitle(line) === own) continue;
+          idxs.push(i);
+          break;
+        }
+      });
+      return idxs;
+    }
+
+    // 按正文里出现的章节标题把一章切成多段；切不动返回 null
+    function cutChapterByTitle(c) {
+      const own = normalizeTitle(c.title);
+      const parts = [];
+      let curTitle = c.title;
+      let curLines = [];
+      for (const line of (c.content || '').split('\n')) {
+        if (looksLikeChapterTitle(line) && normalizeTitle(line) !== own && normalizeTitle(line) !== normalizeTitle(curTitle)) {
+          if (curLines.join('\n').trim()) {
+            parts.push({ title: curTitle, content: curLines.join('\n').trim() });
+          }
+          curTitle = line.replace(/^[\s\u3000]+/,'').replace(/[\s\u3000]+$/,'').substring(0, 120);
+          curLines = [];
+        } else {
+          curLines.push(line);
+        }
+      }
+      if (curLines.join('\n').trim()) {
+        parts.push({ title: curTitle, content: curLines.join('\n').trim() });
+      }
+      return parts.length >= 2 ? parts : null;
+    }
+
+    // 把粘连的章节重新按标题切开，替换掉原来那条
+    function splitMergedChapters(kind = 'txt') {
+      const list = kind === 'txt' ? parsedChapters : epubChapters;
+      const idxs = findMergedChapterIndexes(list);
+      if (idxs.length === 0) return showMsg(kind === 'txt' ? 'import-msg' : 'epub-msg','没有检测到粘连的章节','');
+      const out = [];
+      let splitCount = 0;
+      list.forEach((c, i) => {
+        if (!idxs.includes(i)) { delete c._merged; out.push(c); return; }
+        const sub = cutChapterByTitle(c);
+        if (sub) {
+          splitCount += sub.length - 1;
+          for (const s of sub) out.push({ title: s.title, content: s.content, checked: c.checked });
+        } else {
+          delete c._merged;
+          out.push(c);
+        }
+      });
+      if (kind === 'txt') { parsedChapters = out; markMergedChapters('txt'); renderImportPreview(); }
+      else {
+        epubChapters = out;
+        applyEpubDedupe();
+        markMergedChapters('epub');
+        renderEpubPreview();
+      }
+      showMsg(kind === 'txt' ? 'import-msg' : 'epub-msg', `已拆出 ${splitCount} 章`, 'success');
+    }
+
+    function markMergedChapters(kind = 'txt') {
+      const list = kind === 'txt' ? parsedChapters : epubChapters;
+      const idxs = new Set(findMergedChapterIndexes(list));
+      list.forEach((c, i) => { c._merged = idxs.has(i); });
+    }
+    document.getElementById('import-chapters').addEventListener('change', (e) => {
+      if (e.target.classList.contains('import-check')) {
+        parsedChapters[e.target.dataset.idx].checked = e.target.checked;
+        updateTxtStats();
+      }
+    });
+    document.getElementById('import-chapters').addEventListener('input', (e) => {
+      if (e.target.classList.contains('import-title-edit')) {
+        parsedChapters[e.target.dataset.idx].title = e.target.value;
+      }
+    });
+
+    // ===== 章节批量勾选（TXT / EPUB 共用） =====
+    function setAllChapters(kind, checked, onlyNew) {
+      const list = kind === 'txt' ? parsedChapters : epubChapters;
+      for (const c of list) {
+        if (onlyNew && c.dup) { c.checked = false; c._autoSkipped = true; continue; }
+        c.checked = checked;
+        c._autoSkipped = false;
+      }
+      if (kind === 'txt') { renderImportPreview(); } else { renderEpubPreview(); }
+    }
+    function invertChapters(kind) {
+      const list = kind === 'txt' ? parsedChapters : epubChapters;
+      for (const c of list) { c.checked = !c.checked; c._autoSkipped = false; }
+      if (kind === 'txt') { renderImportPreview(); } else { renderEpubPreview(); }
+    }
+
+    // ===== 插入位置（追加 / 插入到指定章节之后） =====
+    function toggleInsertSelect(selectId, mode) {
+      const el = document.getElementById(selectId);
+      if (!el) return;
+      el.style.display = mode === 'after' ? '' : 'none';
+      if (mode === 'after') {
+        const bookSel = selectId === 'import-after-chapter'
+          ? document.getElementById('import-book')
+          : document.getElementById('epub-book-select');
+        if (bookSel && bookSel.value) loadInsertChapterOptions(bookSel.value, selectId);
+      }
+      if (selectId === 'epub-after-chapter') updateEpubTargetHint();
+    }
+
+    async function loadInsertChapterOptions(bookId, selectId) {
+      const el = document.getElementById(selectId);
+      if (!el) return;
+      el.innerHTML = '<option value="">加载中...</option>';
+      try {
+        const res = await fetch(`/api/books/${bookId}`);
+        const data = await res.json();
+        const chapters = data.chapters || [];
+        el.innerHTML = chapters.length === 0
+          ? '<option value="">该书暂无章节</option>'
+          : '<option value="">追加到末尾</option>' + chapters.map(c => `<option value="${c.id}">第${c.sort_order}章 ${esc(c.title)}</option>`).join('');
+      } catch {
+        el.innerHTML = '<option value="">加载失败</option>';
+      }
+    }
+
+    // 返回新章节的起始 sort_order；insert 模式下会先为后续章节腾出空间
+    async function resolveBaseOrder(bookId, afterChapterId, count) {
+      if (afterChapterId) {
+        const res = await api('POST','/api/admin/chapters/reindex',{book_id:Number(bookId),after_chapter_id:Number(afterChapterId),count});
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || '调整章节顺序失败');
+        return Number(d.base_order) || 0;
+      }
+      try {
+        const bRes = await fetch(`/api/books/${bookId}`);
+        const bData = await bRes.json();
+        const chs = bData.chapters || [];
+        if (chs.length > 0) return Math.max(...chs.map(c => c.sort_order || 0));
+      } catch {}
+      return 0;
+    }
+
+    // ===== TXT 导入方式（创建新书 / 导入到已有书籍） =====
+    function getTxtImportMode() {
+      return document.querySelector('input[name="import-mode"]:checked').value;
+    }
+    let lastTxtFilename = '';
+
+    function toggleTxtImportMode() {
+      const isExisting = getTxtImportMode() === 'existing';
+      document.getElementById('import-existing-book').style.display = isExisting ? '' : 'none';
+      document.getElementById('import-new-book-info').style.display = isExisting ? 'none' : '';
+      if (isExisting) {
+        const sel = document.getElementById('import-book');
+        if (sel && sel.value) loadInsertChapterOptions(sel.value, 'import-after-chapter');
+      }
+      updateTxtTargetHint();
+    }
+    document.querySelectorAll('input[name="import-mode"]').forEach(radio => {
+      radio.addEventListener('change', toggleTxtImportMode);
+    });
+
+    function updateTxtTargetHint() {
+      const el = document.getElementById('import-target-hint');
+      if (!el) return;
+      if (getTxtImportMode() !== 'existing') {
+        const title = document.getElementById('import-book-title').value.trim() || lastTxtFilename || '（使用文件名）';
+        el.textContent = `将创建新书《${title}》`;
+        return;
+      }
+      const sel = document.getElementById('import-book');
+      if (!sel || !sel.value) { el.textContent = '请先选择目标书籍'; return; }
+      const name = (sel.options[sel.selectedIndex]?.textContent || '').trim();
+      const position = document.getElementById('import-position').value;
+      if (position === 'after') {
+        const afterSel = document.getElementById('import-after-chapter');
+        const afterText = afterSel?.value ? (afterSel.options[afterSel.selectedIndex]?.textContent || '指定章节') : '指定章节';
+        el.textContent = `插入到《${name}》「${afterText.replace(/^第\d+章 /, '')}」之后`;
+      } else {
+        el.textContent = `追加到《${name}》末尾`;
+      }
+    }
+    document.getElementById('import-book-title').addEventListener('input', updateTxtTargetHint);
+    document.getElementById('import-after-chapter').addEventListener('change', updateTxtTargetHint);
+
+    function cancelImport() {
+      parsedChapters=[];
+      lastTxtFilename='';
+      document.getElementById('import-preview').style.display='none';
+      document.getElementById('import-file').value='';
+      document.querySelector('.import-progress').style.display='none';
+      document.getElementById('import-book-title').value='';
+      document.getElementById('import-book-author').value='';
+      document.getElementById('import-book-desc').value='';
+      updateTxtTargetHint();
+    }
+    async function startImport() {
+      const chapters=parsedChapters.filter(c=>c.checked);
+      if (chapters.length===0) return showMsg('import-msg','没有选中任何章节','error');
+
+      const mode=getTxtImportMode();
+      let bookId=null;
+
+      if (mode==='new') {
+        const title=document.getElementById('import-book-title').value.trim() || lastTxtFilename;
+        if (!title) return showMsg('import-msg','请输入书名（或先选择 TXT 文件以使用文件名）','error');
+        const author=document.getElementById('import-book-author').value.trim();
+        const description=document.getElementById('import-book-desc').value.trim();
+        try {
+          const res=await api('POST','/api/admin/books',{title,author,description});
+          const data=await res.json();
+          if (!res.ok) throw new Error(data.error);
+          bookId=data.book.id;
+        } catch(e) { return showMsg('import-msg','创建书籍失败：'+e.message,'error'); }
+      } else {
+        bookId=document.getElementById('import-book').value;
+        if (!bookId) return showMsg('import-msg','请选择目标书籍','error');
+      }
+
+      const position=mode==='existing'?document.getElementById('import-position').value:'append';
+      const afterChapterId=(mode==='existing'&&position==='after')?document.getElementById('import-after-chapter').value:'';
+      if (mode==='existing' && position==='after' && !afterChapterId) return showMsg('import-msg','请选择插入到哪一章之后','error');
+
+      const bar=document.getElementById('import-bar');
+      const status=document.getElementById('import-status');
+      document.querySelector('.import-progress').style.display='block';
+      // 计算新章节的起始 sort_order。新建的书必然为空，从 0 开始；
+      // 已有书籍按插入位置计算（插入模式会先为后续章节腾出空间）。
+      let baseOrder = 0;
+      if (mode==='existing') {
+        try {
+          baseOrder = await resolveBaseOrder(bookId, afterChapterId, chapters.length);
+        } catch(e) {
+          return showMsg('import-msg', e.message,'error');
+        }
+      }
+      let uploaded=0,errors=[];
+      const tasks = chapters.map((ch, idx) => async () => {
+        let lastErr;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            const res = await api('POST','/api/admin/chapters',{book_id:Number(bookId),title:ch.title,content:ch.content,sort_order:baseOrder+idx+1});
+            if (res.ok) return;
+            const d = await res.json();
+            if (res.status >= 400 && res.status < 500) { errors.push(ch.title+': '+d.error); return; }
+            lastErr = d.error;
+          } catch(e) { lastErr = e.message; }
+          if (retry < 2) await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
+        }
+        errors.push(ch.title+': '+lastErr);
+      });
+      // 进度追踪包装
+      const tracked = tasks.map(fn => async () => { try { await fn(); } finally { uploaded++; const pct=Math.round(uploaded/chapters.length*100); bar.style.width=pct+'%'; status.textContent=`${uploaded}/${chapters.length} 章（${pct}%）`; } });
+      await concurrentUpload(tracked, 3);
+      const msgPrefix = position==='after' ? `已插入到第 ${baseOrder} 章之后，` : '';
+      if (errors.length>0) {
+        // 新建书且全部章节失败时，自动清掉空书
+        if (mode==='new' && errors.length===chapters.length) {
+          try { await api('DELETE','/api/admin/books/'+bookId); } catch {}
+          cancelImport(); refreshAllBooks(); loadChapters();
+          return showMsg('import-msg',`导入全部失败，已自动删除空书。失败原因：${errors.slice(0,3).join('；')}`,'error');
+        }
+        showMsg('import-msg',`${msgPrefix}导入完成，${errors.length} 章失败：${errors.slice(0,3).join('；')}`,'error');
+      } else { showMsg('import-msg',`${msgPrefix}成功导入 ${uploaded} 章`,'success'); }
+      cancelImport(); refreshAllBooks(); loadChapters();
+    }
+
+    // ===== TXT导出 =====
+    function downloadTxt(text,filename) {
+      const BOM='\uFEFF';
+      const blob=new Blob([BOM+text],{type:'text/plain;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url; a.download=filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    async function exportBook(bookId) {
+      showMsg('manage-msg','正在导出...','');
+      try {
+        const res=await fetch(`/api/books/${bookId}`);
+        const data=await res.json();
+        const book=data.book; const chapters=data.chapters||[];
+        if (chapters.length===0) return showMsg('manage-msg','没有章节可导出','error');
+        const parts=[];
+        for (const ch of chapters) {
+          const r=await fetch(`/api/chapters/${ch.id}`);
+          const d=await r.json();
+          parts.push(ch.title+'\n\n'+d.content);
+        }
+        const sep='\n\n'+'='.repeat(40)+'\n\n';
+        const header=`《${book.title}》\n${book.author?'作者：'+book.author+'\n':''}\n`;
+        downloadTxt(header+parts.join(sep),(book.title+(book.author?'_'+book.author:'')+'.txt').replace(/[<>:"/\\|?*]/g,'_'));
+        showMsg('manage-msg','导出成功','success');
+      } catch(e) { showMsg('manage-msg','导出失败：'+e.message,'error'); }
+    }
+    async function exportChapter(chapterId,title) {
+      try {
+        const res=await fetch(`/api/chapters/${chapterId}`);
+        const data=await res.json();
+        downloadTxt(data.content,(title+'.txt').replace(/[<>:"/\\|?*]/g,'_'));
+      } catch(e) { alert('导出失败：'+e.message); }
+    }
+
+    // ===== 书籍 =====
+    // 缓存书籍数据用于事件委托
+    let _booksCache = [];
+    let _chaptersCache = [];
+
+    // 共享 fetchBooks：合并 loadBookList 和 loadBookSelects 的 API 调用
+    // 必须带 Authorization header，否则后端不返回 created_by，demo 无法判断所有权
+    let _booksPromise = null;
+    function fetchBooks() {
+      if (!_booksPromise) {
+        _booksPromise = api('GET', '/api/books').then(r => r.json()).then(d => {
+          _booksPromise = null;
+          return d;
+        }).catch(e => { _booksPromise = null; throw e; });
+      }
+      return _booksPromise;
+    }
+
+    // 统一刷新书籍列表+下拉框（只发一次请求）
+    async function refreshAllBooks() {
+      const data = await fetchBooks();
+      renderBookList(data);
+      renderBookSelects(data);
+    }
+
+    async function loadBookList() {
+      const data = await fetchBooks();
+      renderBookList(data);
+    }
+
+    function renderBookList(data) {
+      const el=document.getElementById('book-list');
+      try {
+        if (!data.books||data.books.length===0) {
+          el.innerHTML='<li style="padding:12px 0;color:var(--text-light)">暂无书籍</li>'; _booksCache=[]; return;
+        }
+        _booksCache = data.books;
+        const visibleBooks = adminActiveTagId === null
+          ? data.books
+          : data.books.filter(b => (b.tags || []).some(t => t.id === adminActiveTagId));
+        if (visibleBooks.length === 0) {
+          el.innerHTML='<li style="padding:12px 0;color:var(--text-light)">该分类暂无书籍</li>';
+          return;
+        }
+        el.innerHTML=visibleBooks.map(b=>{
+          const isOwner = currentRole !== 'demo' || b.created_by === currentUserId;
+          const status = b.status || 'normal';
+          const isDeleted = status === 'deleted';
+          const isUnlisted = status === 'unlisted';
+          const dimmed = !isOwner || isDeleted;
+
+          // 状态标签
+          let statusBadge = '';
+          if (isDeleted && b.delete_at) {
+            const days = Math.max(0, Math.ceil((new Date(b.delete_at) - Date.now()) / 86400000));
+            statusBadge = `<span style="font-size:11px;color:#e74c3c;background:#fde8e8;padding:1px 6px;border-radius:3px;margin-left:6px">🗑️ ${days}天后删除</span>`;
+          } else if (isUnlisted) {
+            statusBadge = '<span style="font-size:11px;color:#e67e22;background:#fef3e2;padding:1px 6px;border-radius:3px;margin-left:6px">已下架</span>';
+          }
+
+          // 操作按钮
+          let actions = '';
+          if (isOwner) {
+            actions += '<button class="btn btn-sm btn-edit-book">编辑</button>';
+            if (isDeleted) {
+              actions += ' <button class="btn btn-sm btn-restore-book" style="background:#27ae60;color:#fff">恢复</button>';
+              actions += ' <button class="btn btn-sm btn-danger btn-delete-book">永久删除</button>';
+            } else if (isUnlisted) {
+              actions += ' <button class="btn btn-sm btn-restore-book" style="background:#27ae60;color:#fff">上架</button>';
+              actions += ' <button class="btn btn-sm btn-danger btn-delete-book">删除</button>';
+            } else {
+              actions += ' <button class="btn btn-sm btn-unlist-book" style="background:#e67e22;color:#fff">下架</button>';
+              actions += ' <button class="btn btn-sm btn-danger btn-delete-book">删除</button>';
+            }
+          }
+
+          const tags = (b.tags || []).map(t => `<span class="tag-pill" style="font-size:11px;padding:2px 7px;border-color:${esc(t.color)};color:${esc(t.color)}">${esc(t.name)}</span>`).join('');
+          return `
+          <li data-id="${b.id}"${dimmed ? ' style="opacity:0.65"' : ''}>
+            <div class="item-info">
+              <div class="item-title">${esc(b.title)}${statusBadge}${currentRole === 'demo' && !isOwner ? ' <span style="font-size:11px;color:var(--text-light)">(他人)</span>' : ''}</div>
+              <div class="item-meta">${b.author?esc(b.author)+' · ':''}${b.chapter_count} 章 · ${b.total_words} 字</div>
+              ${tags ? `<div class="card-tags">${tags}</div>` : ''}
+            </div>
+            <div class="item-actions">${actions}</div>
+          </li>
+        `}).join('');
+      } catch(e) {
+        const el=document.getElementById('book-list');
+        el.innerHTML=`<li class="msg msg-error">${esc(e.message)}</li>`;
+      }
+    }
+
+    // 书籍列表事件委托
+    document.getElementById('book-list').addEventListener('click', function(e) {
+      const li = e.target.closest('li[data-id]');
+      if (!li) return;
+      const id = Number(li.dataset.id);
+      const book = _booksCache.find(b => b.id === id);
+      if (!book) return;
+      if (e.target.classList.contains('btn-edit-book')) {
+        openBookEditOverlay(book);
+      } else if (e.target.classList.contains('btn-delete-book')) {
+        const btn = e.target;
+        const isAlreadyDeleted = (book.status || 'normal') === 'deleted';
+        const prompt = isAlreadyDeleted
+          ? `确定永久删除回收站中的「${book.title}」？\n\n书籍、章节、批注和封面将立即删除，且无法恢复。`
+          : `确定永久删除「${book.title}」？\n\n书籍、章节、批注和封面将立即删除，且无法恢复。`;
+        if (!confirm(prompt)) return;
+        btn.disabled = true;
+        btn.textContent = '删除中...';
+        btn.style.opacity = '0.6';
+        api('DELETE',`/api/admin/books/${id}`).then(r=>r.json()).then(d=>{
+          if (!d.success&&d.error) throw new Error(d.error);
+          refreshAllBooks(); loadChapters();
+        }).catch(err=>{
+          alert('删除失败：'+err.message);
+          btn.disabled = false;
+          btn.textContent = '删除';
+          btn.style.opacity = '';
+        });
+      } else if (e.target.classList.contains('btn-unlist-book')) {
+        const btn = e.target;
+        if (!confirm(`确定下架「${book.title}」？\n\n下架后首页不再显示，读者无法阅读。`)) return;
+        btn.disabled = true;
+        api('POST',`/api/admin/books/${id}`,{action:'unlist'}).then(r=>r.json()).then(d=>{
+          if (!d.success&&d.error) throw new Error(d.error);
+          refreshAllBooks();
+        }).catch(err=>{
+          alert('下架失败：'+err.message);
+          btn.disabled = false;
+        });
+      } else if (e.target.classList.contains('btn-restore-book')) {
+        const btn = e.target;
+        btn.disabled = true;
+        api('POST',`/api/admin/books/${id}`,{action:'restore'}).then(r=>r.json()).then(d=>{
+          if (!d.success&&d.error) throw new Error(d.error);
+          refreshAllBooks();
+        }).catch(err=>{
+          alert('恢复失败：'+err.message);
+          btn.disabled = false;
+        });
+      }
+    });
+    async function loadBookSelects() {
+      const data = await fetchBooks();
+      renderBookSelects(data);
+    }
+
+    function renderBookSelects(data) {
+      try {
+        const allBooks = data.books || [];
+        // demo用户只能在添加章节/章节管理/导入中选自己的书
+        const myBooks = currentRole === 'demo' ? allBooks.filter(b => b.created_by === currentUserId) : allBooks;
+        const opts = myBooks.length === 0
+          ? '<option value="">请先创建一本书</option>'
+          : myBooks.map(b => `<option value="${b.id}">${esc(b.title)}</option>`).join('');
+        document.getElementById('chapter-book').innerHTML=opts;
+        document.getElementById('import-book').innerHTML=opts;
+        document.getElementById('manage-book').innerHTML='<option value="">选择书籍...</option>'+opts;
+        // EPUB 补充导入的目标书籍（带章节数，便于确认）
+        const epubSel = document.getElementById('epub-book-select');
+        if (epubSel) {
+          const prev = epubSel.value;
+          epubSel.innerHTML = myBooks.length === 0
+            ? '<option value="">请先创建一本书</option>'
+            : myBooks.map(b => `<option value="${b.id}">${esc(b.title)}（${b.chapter_count || 0} 章）</option>`).join('');
+          if (prev && myBooks.some(b => String(b.id) === prev)) epubSel.value = prev;
+          updateEpubTargetHint();
+        }
+        refreshInsertChapterOptions();
+      } catch{}
+    }
+
+    // 书籍下拉变化后，同步「插入到章节之后」的下拉选项
+    function refreshInsertChapterOptions() {
+      const txtBook = document.getElementById('import-book');
+      const txtPos = document.getElementById('import-position');
+      if (txtBook && txtBook.value && txtPos && txtPos.value === 'after' && getTxtImportMode() === 'existing') {
+        loadInsertChapterOptions(txtBook.value, 'import-after-chapter');
+      }
+      const epubBook = document.getElementById('epub-book-select');
+      const epubPos = document.getElementById('epub-position');
+      if (epubBook && epubBook.value && epubPos && epubPos.value === 'after') {
+        loadInsertChapterOptions(epubBook.value, 'epub-after-chapter');
+      }
+      updateTxtTargetHint();
+    }
+    async function createBook() {
+      const title=document.getElementById('book-title').value.trim();
+      const author=document.getElementById('book-author').value.trim();
+      const description=document.getElementById('book-desc').value.trim();
+      if (!title) return showMsg('book-msg','请输入书名','error');
+      try {
+        const res=await api('POST','/api/admin/books',{title,author,description});
+        const data=await res.json();
+        if (!res.ok) throw new Error(data.error);
+        // 保存标签
+        if (_createBookTags.length > 0 && data.book && data.book.id) {
+          await api('PUT', '/api/admin/book-tags', { book_id: data.book.id, tag_ids: _createBookTags }).catch(() => {});
+        }
+        showMsg('book-msg',`创建成功：${esc(data.book.title)}`,'success');
+        document.getElementById('book-title').value='';
+        document.getElementById('book-author').value='';
+        document.getElementById('book-desc').value='';
+        _createBookTags = [];
+        renderCreateBookTags();
+        refreshAllBooks();
+      } catch(e) { showMsg('book-msg',e.message,'error'); }
+    }
+    function editBook(id,title,author,desc) {
+      const newTitle=prompt('书名：',title);
+      if (newTitle===null) return;
+      const newAuthor=prompt('作者：',author);
+      const newDesc=prompt('简介：',desc);
+      api('PUT',`/api/admin/books/${id}`,{title:newTitle||title,author:newAuthor||'',description:newDesc||''})
+        .then(r=>r.json()).then(d=>{if(d.error)throw new Error(d.error);refreshAllBooks();})
+        .catch(e=>alert('编辑失败：'+e.message));
+    }
+    // ===== 章节 =====
+    async function createChapter() {
+      const book_id=document.getElementById('chapter-book').value;
+      const title=document.getElementById('chapter-title').value.trim();
+      const content=document.getElementById('chapter-content').value.trim();
+      if (!book_id) return showMsg('chapter-msg','请选择书籍','error');
+      if (!title) return showMsg('chapter-msg','请输入章节标题','error');
+      if (!content) return showMsg('chapter-msg','请输入章节内容','error');
+      try {
+        const res=await api('POST','/api/admin/chapters',{book_id:Number(book_id),title,content});
+        const data=await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('chapter-msg',`发布成功：${esc(data.chapter.title)}（${data.chapter.word_count} 字）`,'success');
+        document.getElementById('chapter-title').value='';
+        document.getElementById('chapter-content').value='';
+        document.getElementById('word-count').textContent='0';
+        refreshAllBooks(); if(document.getElementById('manage-book').value==book_id) loadChapters();
+      } catch(e) { showMsg('chapter-msg',e.message,'error'); }
+    }
+    async function loadChapters() {
+      const bookId=document.getElementById('manage-book').value;
+      const el=document.getElementById('chapter-list');
+      const exportArea=document.getElementById('export-area');
+      if (!bookId) { el.innerHTML=''; exportArea.innerHTML=''; _chaptersCache=[]; document.getElementById('batch-bar').style.display='none'; return; }
+      try {
+        const res=await fetch(`/api/books/${bookId}`);
+        const data=await res.json();
+        const chapters=data.chapters||[];
+        _chaptersCache = chapters;
+        if (chapters.length===0) {
+          el.innerHTML='<li style="padding:12px 0;color:var(--text-light)">暂无章节</li>';
+          exportArea.innerHTML=''; return;
+        }
+        el.innerHTML=chapters.map((c,i)=>`
+          <li data-id="${c.id}" data-idx="${i}">
+            <div style="display:flex;align-items:center;gap:8px;flex:1">
+              <input type="checkbox" class="ch-select" data-id="${c.id}">
+              <div class="item-info">
+                <div class="item-title">${esc(c.title)}</div>
+                <div class="item-meta">第${c.sort_order}章 · ${c.word_count} 字</div>
+              </div>
+            </div>
+            <div class="item-actions">
+              ${i>0?`<button class="btn btn-sm btn-move-up">↑</button>`:''}
+              ${i<chapters.length-1?`<button class="btn btn-sm btn-move-down">↓</button>`:''}
+              <button class="btn btn-sm btn-export-ch">导出</button>
+              <button class="btn btn-sm btn-split-ch">拆分</button>
+              <button class="btn btn-sm btn-edit-ch">编辑</button>
+              <button class="btn btn-sm btn-danger btn-delete-ch">删除</button>
+            </div>
+          </li>
+        `).join('');
+        document.getElementById('batch-bar').style.display='flex';
+        document.getElementById('select-all').checked=false;
+        updateSelectedCount();
+        exportArea.innerHTML=`<a href="#" id="export-book-link" style="font-size:13px;color:var(--text-light);text-decoration:none;border-bottom:1px dashed var(--text-light)">导出全书 TXT</a>`;
+        document.getElementById('export-book-link').addEventListener('click',function(e){e.preventDefault();exportBook(bookId);});
+      } catch(e) { el.innerHTML=`<li class="msg msg-error">${esc(e.message)}</li>`; }
+    }
+
+    // manage-book / select-all / ch-select 事件绑定（替代内联 onchange）
+    document.getElementById('manage-book').addEventListener('change', loadChapters);
+    document.getElementById('select-all').addEventListener('change', function() {
+      toggleSelectAll(this.checked);
+    });
+    document.getElementById('chapter-list').addEventListener('change', function(e) {
+      if (e.target.classList.contains('ch-select')) updateSelectedCount();
+    });
+
+    // 章节列表事件委托
+    document.getElementById('chapter-list').addEventListener('click', async function(e) {
+      const li = e.target.closest('li[data-id]');
+      if (!li) return;
+      const id = Number(li.dataset.id);
+      const idx = Number(li.dataset.idx);
+      const ch = _chaptersCache[idx];
+      if (!ch) return;
+
+      if (e.target.classList.contains('btn-move-up') && idx > 0) {
+        const prev = _chaptersCache[idx-1];
+        try {
+          const res=await api('POST','/api/admin/chapters/swap',{id1:id,id2:prev.id});
+          const d=await res.json(); if(!res.ok) throw new Error(d.error);
+          loadChapters();
+        } catch(e) { showMsg('manage-msg','排序失败：'+e.message,'error'); }
+      } else if (e.target.classList.contains('btn-move-down') && idx < _chaptersCache.length-1) {
+        const next = _chaptersCache[idx+1];
+        try {
+          const res=await api('POST','/api/admin/chapters/swap',{id1:next.id,id2:id});
+          const d=await res.json(); if(!res.ok) throw new Error(d.error);
+          loadChapters();
+        } catch(e) { showMsg('manage-msg','排序失败：'+e.message,'error'); }
+      } else if (e.target.classList.contains('btn-export-ch')) {
+        try {
+          const res=await fetch(`/api/chapters/${id}`);
+          const data=await res.json();
+          downloadTxt(data.content,(ch.title+'.txt').replace(/[<>:"/\\|?*]/g,'_'));
+        } catch(e) { alert('导出失败：'+e.message); }
+      } else if (e.target.classList.contains('btn-split-ch')) {
+        openSplitOverlay(id);
+      } else if (e.target.classList.contains('btn-edit-ch')) {
+        const newTitle=prompt('章节标题：');
+        if (newTitle===null) return;
+        const editContent=confirm('是否修改正文内容？');
+        let body={};
+        if (newTitle) body.title=newTitle;
+        if (editContent) { const c=prompt('输入新的正文内容（会完全替换原内容）：'); if(c) body.content=c; }
+        if (!body.title&&!body.content) return;
+        try {
+          const res=await api('PUT',`/api/admin/chapters/${id}`,body);
+          const d=await res.json(); if(!res.ok) throw new Error(d.error);
+          if (d.warning) { alert('⚠️ ' + d.warning); }
+          showMsg('manage-msg','编辑成功','success');
+          loadChapters(); refreshAllBooks();
+        } catch(e) { showMsg('manage-msg','编辑失败：'+e.message,'error'); }
+      } else if (e.target.classList.contains('btn-delete-ch')) {
+        if (!confirm(`确定删除章节「${ch.title}」？`)) return;
+        try {
+          const res=await api('DELETE',`/api/admin/chapters/${id}`);
+          const d=await res.json(); if(!res.ok) throw new Error(d.error);
+          loadChapters(); refreshAllBooks();
+        } catch(e) { showMsg('manage-msg','删除失败：'+e.message,'error'); }
+      }
+    });
+
+    // ===== 章节拆分 =====
+    let splitParts = [];
+    const splitOverlay = document.getElementById('split-overlay');
+
+    async function openSplitOverlay(chapterId) {
+      const ch = _chaptersCache.find(c => c.id === chapterId);
+      document.getElementById('split-chapter-id').value = chapterId;
+      document.getElementById('split-intro').textContent = ch ? `原章节：第${ch.sort_order}章 ${ch.title}` : '';
+      document.getElementById('split-content').value = '';
+      splitParts = [];
+      renderSplitParts();
+      splitOverlay.classList.add('active');
+      showMsg('split-msg', '正在读取正文...', '');
+      try {
+        const res = await fetch(`/api/chapters/${chapterId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        document.getElementById('split-content').value = data.content || '';
+        resetSplitParts();
+        showMsg('split-msg', '', '');
+      } catch (e) {
+        showMsg('split-msg', '读取失败：' + e.message, 'error');
+      }
+    }
+
+    function closeSplitOverlay() {
+      splitOverlay.classList.remove('active');
+      splitParts = [];
+      document.getElementById('split-parts').innerHTML = '';
+      showMsg('split-msg', '', '');
+    }
+
+    function resetSplitParts() {
+      const ch = _chaptersCache.find(c => c.id === Number(document.getElementById('split-chapter-id').value));
+      const content = document.getElementById('split-content').value;
+      splitParts = [{ title: ch ? ch.title : '章节', content }];
+      renderSplitParts();
+    }
+
+    function renderSplitParts() {
+      const el = document.getElementById('split-parts');
+      el.innerHTML = splitParts.map((p, i) => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--text-light);white-space:nowrap">${i + 1}.</span>
+            <input type="text" value="${esc(p.title)}" data-idx="${i}" maxlength="200" class="split-title-edit" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:14px;background:var(--bg);color:var(--text)">
+            <span style="font-size:12px;color:var(--text-light);white-space:nowrap">${p.content.length} 字</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;padding-left:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.content.slice(0, 100))}</div>
+        </div>
+      `).join('');
+      document.getElementById('split-hint').textContent = splitParts.length > 1
+        ? `共 ${splitParts.length} 章，原章节保留第 1 段，其余 ${splitParts.length - 1} 章插入其后（后续章节自动顺延）`
+        : '当前未拆分（整章保留）';
+      document.getElementById('confirm-split-btn').disabled = splitParts.length < 2;
+    }
+
+    document.getElementById('split-parts').addEventListener('input', function(e) {
+      if (e.target.classList.contains('split-title-edit')) {
+        splitParts[e.target.dataset.idx].title = e.target.value;
+      }
+    });
+
+    // 用与 TXT 导入相同的章节正则拆分
+    function autoSplitChapter() {
+      const text = document.getElementById('split-content').value;
+      if (!text.trim()) return showMsg('split-msg', '正文为空', 'error');
+      const parsed = splitChapters(text);
+      if (!parsed || parsed.length < 2) {
+        return showMsg('split-msg', '未识别到 2 个以上章节标题，请检查正文或使用分隔线拆分', 'error');
+      }
+      splitParts = parsed.map(c => ({ title: c.title, content: c.content }));
+      renderSplitParts();
+      showMsg('split-msg', `已识别出 ${splitParts.length} 章`, 'success');
+    }
+
+    // 按单独一行的分隔线拆分（----、====、***、—— 等）
+    function splitByMarker() {
+      const text = document.getElementById('split-content').value;
+      const ch = _chaptersCache.find(c => c.id === Number(document.getElementById('split-chapter-id').value));
+      const baseTitle = ch ? ch.title : '章节';
+      const blocks = text
+        .replace(/\r\n?/g, '\n')
+        .split(/\n[ \t]*(?:-{3,}|={3,}|\*{3,}|_{3,}|—{3,})[ \t]*\n/)
+        .map(b => b.trim())
+        .filter(Boolean);
+      if (blocks.length < 2) {
+        return showMsg('split-msg', '未找到分隔线，请在正文中插入单独一行的 ---- 或 ====', 'error');
+      }
+      splitParts = blocks.map((b, i) => ({ title: i === 0 ? baseTitle : `${baseTitle}（${i + 1}）`, content: b }));
+      renderSplitParts();
+      showMsg('split-msg', `已按分隔线拆出 ${splitParts.length} 段，可手动修改标题`, 'success');
+    }
+
+    async function confirmSplit() {
+      const chapterId = Number(document.getElementById('split-chapter-id').value);
+      if (!chapterId) return;
+      if (splitParts.length < 2) return showMsg('split-msg', '至少需要拆成 2 章', 'error');
+      if (splitParts.some(p => !p.title.trim() || !p.content.trim())) {
+        return showMsg('split-msg', '每章都需要标题和内容', 'error');
+      }
+      if (!confirm(`确定把原章节拆成 ${splitParts.length} 章？后续章节会自动顺延。`)) return;
+      const btn = document.getElementById('confirm-split-btn');
+      btn.disabled = true;
+      btn.textContent = '拆分钟...';
+      try {
+        const res = await api('POST', '/api/admin/chapters/split', { chapter_id: chapterId, parts: splitParts });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error);
+        if (d.failed && d.failed.length > 0) {
+          showMsg('split-msg', `部分失败：${d.failed.join('；')}`, 'error');
+        } else {
+          closeSplitOverlay();
+          showMsg('manage-msg', `已拆分为 ${d.total} 章`, 'success');
+        }
+        loadChapters(); refreshAllBooks();
+      } catch (e) {
+        showMsg('split-msg', '拆分失败：' + e.message, 'error');
+      } finally {
+        btn.disabled = splitParts.length < 2;
+        btn.textContent = '确认拆分';
+      }
+    }
+
+    document.getElementById('close-split').addEventListener('click', closeSplitOverlay);
+    splitOverlay.addEventListener('click', (e) => { if (e.target === splitOverlay) closeSplitOverlay(); });
+
+    // ===== 工具 =====
+    function api(method,url,body) {
+      const opts={method,headers:{'Content-Type':'application/json'}, credentials:'same-origin'};
+      if (body) opts.body=JSON.stringify(body);
+      return fetch(url,opts);
+    }
+
+    // 并发上传控制器
+    async function concurrentUpload(tasks, concurrency = 3) {
+      let idx = 0;
+      const results = [];
+      async function worker() {
+        while (idx < tasks.length) {
+          const i = idx++;
+          try { results[i] = await tasks[i](); } catch (e) { results[i] = e; }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+      return results;
+    }
+    function showMsg(id,text,type) {
+      const el=document.getElementById(id);
+      el.className=type?`msg msg-${type}`:'';
+      el.textContent=text;
+      if (type==='success') setTimeout(()=>{el.className='';el.textContent='';},5000);
+    }
+    function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+    // DRM检测函数：扩展检测多种DRM加密类型
+    async function checkEPUBDRM(zip) {
+      try {
+        const encryptionXml = await zip.file('META-INF/encryption.xml')?.async('text').catch(() => null);
+        
+        if (!encryptionXml) {
+          return { hasDRM: false };
+        }
+
+        const encDoc = new DOMParser().parseFromString(encryptionXml, 'application/xml');
+        
+        // 检查多种DRM标识元素
+        const drmIndicators = [
+          'EncryptedData',
+          'EncryptedKey',
+          'CipherReference',
+          'CipherValue',
+          'enc\\:EncryptedData',
+          'adept\\:encrypted'
+        ];
+        
+        for (const indicator of drmIndicators) {
+          try {
+            if (encDoc.querySelectorAll(indicator).length > 0) {
+              return {
+                hasDRM: true,
+                reason: `检测到加密元素: ${indicator.replace(/\\/g, '')}`
+              };
+            }
+          } catch (e) {
+            // 选择器可能无效，继续尝试下一个
+          }
+        }
+        
+        // 检查特定的DRM命名空间
+        const drmNamespaces = [
+          'urn:uuid:6b3d3c40-ebc3-11d9-8e3a-0002b3ae9c49', // Adobe Adept
+          'http://www.w3.org/2001/04/xmlenc#', // XML Encryption
+          'http://ns.adobe.com/adept' // Adobe Adept
+        ];
+        
+        const rootElement = encDoc.documentElement;
+        const xmlns = rootElement.getAttribute('xmlns') || '';
+        
+        for (const ns of drmNamespaces) {
+          if (xmlns.includes(ns)) {
+            return {
+              hasDRM: true,
+              reason: '检测到DRM命名空间'
+            };
+          }
+        }
+        
+        // 检查所有元素的属性中是否包含DRM相关关键词
+        const allElements = encDoc.querySelectorAll('*');
+        for (const el of allElements) {
+          const attrs = el.attributes;
+          for (let i = 0; i < attrs.length; i++) {
+            const attrValue = attrs[i].value.toLowerCase();
+            if (attrValue.includes('encryption') || attrValue.includes('adept') || attrValue.includes('drm')) {
+              return {
+                hasDRM: true,
+                reason: '检测到加密相关属性'
+              };
+            }
+          }
+        }
+        
+        return { hasDRM: false };
+      } catch (e) {
+        console.error('DRM检测出错:', e);
+        // 检测出错时保守处理，返回无DRM但记录警告
+        return { hasDRM: false };
+      }
+    }
+
+    document.getElementById('chapter-content').addEventListener('input',function(){
+      document.getElementById('word-count').textContent=this.value.trim().length;
+    });
+
+    // ===== 数据概览 =====
+    async function loadStats() {
+      try {
+        const res = await api('GET', '/api/books');
+        const data = await res.json();
+        const books = data.books || [];
+        const totalChapters = books.reduce((s, b) => s + (b.chapter_count || 0), 0);
+        const totalWords = books.reduce((s, b) => s + (b.total_words || 0), 0);
+        document.getElementById('stat-books').textContent = books.length;
+        document.getElementById('stat-chapters').textContent = totalChapters;
+        document.getElementById('stat-words').textContent = totalWords >= 10000
+          ? (totalWords / 10000).toFixed(1) + ' 万'
+          : totalWords.toLocaleString();
+      } catch {}
+      // 加载访问统计
+      try {
+        const res = await api('GET', '/api/admin/stats');
+        const data = await res.json();
+        document.getElementById('stat-pv').textContent = (data.today?.pv || 0).toLocaleString();
+        document.getElementById('stat-uv').textContent = (data.today?.uv || 0).toLocaleString();
+        const totalPv = data.totals?.total_pv || 0;
+        document.getElementById('stat-total-pv').textContent = totalPv >= 10000
+          ? (totalPv / 10000).toFixed(1) + ' 万' : totalPv.toLocaleString();
+        // 热门书籍
+        const el = document.getElementById('hot-books');
+        if (data.hotBooks && data.hotBooks.length > 0) {
+          el.innerHTML = '<h4 style="margin:0 0 8px;font-size:14px;color:var(--text-light)">📈 近30天热门书籍</h4>' +
+            '<ul style="list-style:none;padding:0;margin:0">' +
+            data.hotBooks.map((b, i) => `<li style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px"><span>${i+1}. ${esc(b.title)}</span><span style="color:var(--text-light)">${b.total_views} 次</span></li>`).join('') +
+            '</ul>';
+        } else {
+          el.innerHTML = '';
+        }
+      } catch {}
+    }
+
+    // ===== 管理员管理 =====
+    let _adminsCache = [];
+    async function loadAdminUsers() {
+      try {
+        const res = await api('GET', '/api/admin/users');
+        const data = await res.json();
+        const admins = data.admins || [];
+        const readers = data.readers || [];
+        _adminsCache = admins;
+        const el = document.getElementById('admin-users-list');
+        const adminTable = admins.length === 0 ? '<p style="color:var(--text-light);font-size:13px">暂无管理员</p>' : '<table style="width:100%;font-size:14px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px">用户名</th><th style="text-align:left;padding:6px">角色</th><th style="text-align:left;padding:6px">来源</th><th style="text-align:left;padding:6px">书籍</th><th style="text-align:left;padding:6px">密码</th><th style="text-align:left;padding:6px">创建时间</th><th style="text-align:right;padding:6px">操作</th></tr></thead><tbody>' +
+          admins.map(a => {
+            const isGH = !!a.github_id;
+            const ghInfo = isGH ? `<span title="GitHub: ${esc(a.github_login || '')}">${a.avatar_url ? '<img src="'+esc(a.avatar_url)+'" style="width:16px;height:16px;border-radius:50%;vertical-align:middle;margin-right:3px">' : ''}🐙 ${esc(a.github_login || '')}</span>` : '<span style="color:var(--text-light)">本地</span>';
+            const bookCount = a.book_count || 0;
+            const bookInfo = bookCount > 0 ? `<span style="cursor:pointer;color:var(--primary)" class="btn-view-user-books" title="查看书籍">${bookCount} 本</span>` : '<span style="color:var(--text-light)">0</span>';
+            return `<tr data-id="${a.id}" data-name="${esc(a.username)}" data-lock="${a.password_locked ? 1 : 0}" style="border-bottom:1px solid var(--border)"><td style="padding:6px">${esc(a.username)}</td><td style="padding:6px"><select class="admin-role-select" data-id="${a.id}" style="padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:13px"><option value="super_admin"${a.role==='super_admin'?' selected':''}>超级管理员</option><option value="admin"${a.role==='admin'?' selected':''}>管理员</option><option value="demo"${a.role==='demo'?' selected':''}>演示</option></select></td><td style="padding:6px;font-size:12px">${ghInfo}</td><td style="padding:6px;font-size:13px">${bookInfo}</td><td style="padding:6px"><span title="${a.password_locked ? '密码已锁定' : '密码可修改'}">${a.password_locked ? '🔒' : '🔓'}</span> <button class="btn btn-sm btn-toggle-pwd-lock" data-action="toggle-pwd-lock" style="font-size:11px;padding:1px 6px">${a.password_locked ? '解锁' : '锁定'}</button></td><td style="padding:6px;color:var(--text-light);font-size:12px">${a.created_at ? a.created_at.slice(0,10) : '-'}</td><td style="padding:6px;text-align:right"><button class="btn btn-sm btn-danger btn-delete-admin" data-action="delete-admin">删除</button></td></tr>`;
+          }).join('') +
+          '</tbody></table>';
+        const readerTable = readers.length === 0 ? '<p style="color:var(--text-light);font-size:13px">暂无普通用户</p>' : '<table style="width:100%;font-size:14px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px">用户名</th><th style="text-align:left;padding:6px">邮箱</th><th style="text-align:left;padding:6px">密码</th><th style="text-align:left;padding:6px">邮箱状态</th><th style="text-align:left;padding:6px">注册时间</th><th style="text-align:right;padding:6px">操作</th></tr></thead><tbody>' +
+          readers.map(u => `<tr data-reader-id="${u.id}" style="border-bottom:1px solid var(--border)"><td style="padding:6px"><input class="reader-username" value="${esc(u.username)}" maxlength="32" style="width:120px;padding:4px"></td><td style="padding:6px"><input class="reader-email" value="${esc(u.email || '')}" maxlength="254" type="email" style="width:180px;padding:4px"></td><td style="padding:6px"><input class="reader-password" type="password" placeholder="不修改" maxlength="128" style="width:110px;padding:4px"></td><td style="padding:6px"><span class="reader-email-verified" data-verified="${u.email_verified ? 1 : 0}" title="邮箱验证状态由用户邮箱验证流程决定，不可手动修改">${u.email_verified ? '已验证' : '待验证'}</span></td><td style="padding:6px;color:var(--text-light);font-size:12px">${u.created_at ? u.created_at.slice(0,10) : '-'}</td><td style="padding:6px;text-align:right;white-space:nowrap"><button class="btn btn-sm btn-save-reader">保存</button> <button class="btn btn-sm btn-danger btn-delete-reader">删除</button></td></tr>`).join('') +
+          '</tbody></table>';
+        el.innerHTML = `<h4 style="margin:0 0 8px">管理员账号</h4>${adminTable}<h4 style="margin:18px 0 8px">普通用户（注册用户）</h4>${readerTable}`;
+      } catch {}
+    }
+
+    // 管理员列表事件委托：click + change
+    document.getElementById('admin-users-list').addEventListener('click', function(e) {
+      const tr = e.target.closest('tr[data-id]');
+      const readerTr = e.target.closest('tr[data-reader-id]');
+      if (readerTr) {
+        const id = Number(readerTr.dataset.readerId);
+        if (e.target.classList.contains('btn-save-reader')) updateReader(id, readerTr);
+        if (e.target.classList.contains('btn-delete-reader')) deleteReader(id, readerTr.querySelector('.reader-username').value);
+        return;
+      }
+      if (!tr) return;
+      const id = Number(tr.dataset.id);
+      const name = tr.dataset.name;
+      const lock = Number(tr.dataset.lock);
+      if (e.target.classList.contains('btn-toggle-pwd-lock')) {
+        togglePwdLock(id, lock ? 0 : 1);
+      } else if (e.target.classList.contains('btn-delete-admin')) {
+        deleteAdmin(id, name);
+      } else if (e.target.classList.contains('btn-view-user-books')) {
+        showUserBooks(id, name);
+      }
+    });
+    document.getElementById('admin-users-list').addEventListener('change', function(e) {
+      if (e.target.classList.contains('admin-role-select')) {
+        const id = Number(e.target.dataset.id);
+        changeRole(id, e.target.value);
+      }
+    });
+
+    async function createAdmin() {
+      const username = document.getElementById('new-admin-user').value.trim();
+      const password = document.getElementById('new-admin-pass').value;
+      const role = document.getElementById('new-admin-role').value;
+      const email = document.getElementById('new-reader-email').value.trim();
+      const pwdLock = document.getElementById('new-admin-pwd-lock').checked;
+      if (!username || !password) return showMsg('admin-user-msg', '请填写用户名和密码', 'error');
+      try {
+        const res = await api('POST', '/api/admin/users', { username, password, role, email, password_locked: pwdLock ? 1 : 0 });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('admin-user-msg', data.message, 'success');
+        document.getElementById('new-admin-user').value = '';
+        document.getElementById('new-admin-pass').value = '';
+        document.getElementById('new-admin-pwd-lock').checked = false;
+        document.getElementById('new-reader-email').value = '';
+        loadAdminUsers();
+      } catch(e) { showMsg('admin-user-msg', e.message, 'error'); }
+    }
+
+    document.getElementById('new-admin-role').addEventListener('change', function() {
+      document.getElementById('new-reader-email-wrap').style.display = this.value === 'reader' ? '' : 'none';
+    });
+
+    function showUserBooks(userId, username) {
+      const books = _booksCache.filter(b => b.created_by === userId);
+      if (books.length === 0) { alert(`${username} 没有创建任何书籍`); return; }
+      const statusLabel = s => s === 'deleted' ? '🗑️待删除' : s === 'unlisted' ? '⚠️已下架' : '';
+      const list = books.map(b => {
+        const sl = statusLabel(b.status);
+        return `• ${b.title}（${b.chapter_count}章 / ${b.total_words}字）${sl ? ' ' + sl : ''}`;
+      }).join('\n');
+      alert(`${username} 的书籍（${books.length}本）：\n\n${list}`);
+    }
+
+    async function deleteAdmin(id, username) {
+      if (!confirm(`确定删除管理员 ${username}？`)) return;
+      try {
+        const res = await api('DELETE', '/api/admin/users', { id });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        loadAdminUsers();
+      } catch(e) { alert(e.message); }
+    }
+
+    async function changeRole(id, role) {
+      try {
+        const res = await api('PUT', '/api/admin/users', { id, role });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        // 如果修改的是当前用户自己的角色，需要重新检查会话
+        if (id === currentUserId) {
+          await checkSession();
+        }
+        loadAdminUsers();
+      } catch(e) { alert(e.message); loadAdminUsers(); }
+    }
+
+    async function togglePwdLock(id, newValue) {
+      try {
+        const res = await api('PUT', '/api/admin/users', { id, password_locked: newValue });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        loadAdminUsers();
+      } catch(e) { alert(e.message); loadAdminUsers(); }
+    }
+
+    async function updateReader(id, row) {
+      const password = row.querySelector('.reader-password').value;
+      const body = {
+        id,
+        username: row.querySelector('.reader-username').value.trim(),
+        email: row.querySelector('.reader-email').value.trim()
+        // 邮箱验证状态由邮箱验证流程维护，后台不可手工修改
+      };
+      if (password) body.password = password;
+      try {
+        const res = await api('PUT', '/api/admin/users', body);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('admin-user-msg', data.message, 'success');
+        loadAdminUsers();
+      } catch (e) {
+        showMsg('admin-user-msg', e.message, 'error');
+      }
+    }
+
+    async function deleteReader(id, username) {
+      if (!confirm(`确定删除普通用户 ${username}？该用户的批注、点赞和会话也会被删除。`)) return;
+      try {
+        const res = await api('DELETE', '/api/admin/users', { id });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('admin-user-msg', data.message, 'success');
+        loadAdminUsers();
+      } catch (e) {
+        showMsg('admin-user-msg', e.message, 'error');
+      }
+    }
+
+    // ===== 批量操作 =====
+    function toggleSelectAll(checked) {
+      document.querySelectorAll('.ch-select').forEach(cb => cb.checked = checked);
+      updateSelectedCount();
+    }
+    function updateSelectedCount() {
+      const count = document.querySelectorAll('.ch-select:checked').length;
+      const el = document.getElementById('selected-count');
+      if (el) el.textContent = `已选 ${count} 章`;
+    }
+    async function batchDelete() {
+      const ids = [...document.querySelectorAll('.ch-select:checked')].map(cb => Number(cb.dataset.id));
+      if (ids.length === 0) return showMsg('manage-msg', '请先勾选要删除的章节', 'error');
+      if (!confirm(`确定删除选中的 ${ids.length} 个章节？此操作不可恢复！`)) return;
+      let deleted = 0, errors = [];
+      showMsg('manage-msg', `正在删除 0/${ids.length} ...`, '');
+      for (const id of ids) {
+        try {
+          const res = await api('DELETE', `/api/admin/chapters/${id}`);
+          if (!res.ok) { const d = await res.json(); errors.push(d.error); }
+          else deleted++;
+        } catch (e) { errors.push(e.message); }
+        showMsg('manage-msg', `正在删除 ${deleted + errors.length}/${ids.length} ...`, '');
+      }
+      if (errors.length > 0) {
+        showMsg('manage-msg', `删除 ${deleted} 章，${errors.length} 章失败`, 'error');
+      } else {
+        showMsg('manage-msg', `成功删除 ${deleted} 章`, 'success');
+      }
+      loadChapters(); refreshAllBooks();
+    }
+
+    // ===== 数据备份与恢复 =====
+    // 备份/恢复的共享状态：用于进度显示与中途取消
+    const backupState = { running: false, cancelled: false, kind: '' };
+
+    function backupEls() {
+      return {
+        btn: document.getElementById('backup-btn'),
+        cancel: document.getElementById('backup-cancel'),
+        label: document.getElementById('restore-label'),
+        bar: document.getElementById('backup-bar'),
+        status: document.getElementById('backup-status'),
+        percent: document.getElementById('backup-percent'),
+        progress: document.getElementById('backup-progress')
+      };
+    }
+
+    function backupBusy(kind) {
+      const el = backupEls();
+      backupState.running = true;
+      backupState.cancelled = false;
+      backupState.kind = kind;
+      el.progress.style.display = 'block';
+      el.cancel.style.display = '';
+      el.btn.disabled = true;
+      el.label.classList.add('is-disabled');
+      el.progress.classList.remove('is-done');
+      setBackupProgress(0, kind === 'export' ? '准备导出…' : '读取备份文件…');
+    }
+
+    function backupIdle() {
+      const el = backupEls();
+      backupState.running = false;
+      el.btn.disabled = false;
+      el.btn.textContent = '导出备份';
+      el.label.classList.remove('is-disabled');
+      el.cancel.style.display = 'none';
+    }
+
+    function setBackupProgress(pct, text) {
+      const el = backupEls();
+      const v = Math.max(0, Math.min(100, Math.round(pct)));
+      el.bar.style.width = v + '%';
+      if (el.percent) el.percent.textContent = v + '%';
+      if (text != null) el.status.textContent = text;
+    }
+
+    function cancelBackup() {
+      if (!backupState.running) return;
+      backupState.cancelled = true;
+      backupState.running = false;
+      const el = backupEls();
+      setBackupProgress(parseInt(el.bar.style.width) || 0, '正在取消…');
+      el.cancel.disabled = true;
+      setTimeout(() => { el.cancel.disabled = false; }, 600);
+    }
+
+    function backupAbortedError() {
+      const e = new Error('已取消');
+      e.aborted = true;
+      return e;
+    }
+
+    // 让浏览器有机会渲染进度条动画
+    function nextFrame() {
+      return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+
+    async function exportBackup() {
+      if (backupState.running) return;
+      const el = backupEls();
+      backupBusy('export');
+      el.btn.textContent = '导出中...';
+      try {
+        const booksRes = await api('GET', '/api/books');
+        const booksData = await booksRes.json();
+        const books = booksData.books || [];
+        if (backupState.cancelled) throw backupAbortedError();
+
+        const settingsRes = await fetch('/api/settings');
+        const settingsData = await settingsRes.json();
+        const backup = { version: 1, exportedAt: new Date().toISOString(), settings: settingsData.settings || {}, books: [] };
+
+        // 进度以章节数为主，书籍数为辅，总数事先无法完全预知时按已处理量估算
+        let doneBooks = 0, doneChapters = 0;
+        for (const book of books) {
+          if (backupState.cancelled) throw backupAbortedError();
+          const bookRes = await fetch(`/api/books/${book.id}`);
+          const bookData = await bookRes.json();
+          const chapters = bookData.chapters || [];
+          const fullChapters = [];
+          for (let i = 0; i < chapters.length; i++) {
+            if (backupState.cancelled) throw backupAbortedError();
+            const ch = chapters[i];
+            const chRes = await fetch(`/api/chapters/${ch.id}`);
+            const chData = await chRes.json();
+            fullChapters.push({ title: ch.title, sort_order: ch.sort_order, word_count: ch.word_count, content: chData.content || '' });
+            doneChapters++;
+            // 章节内进度：占当前书籍进度的剩余部分
+            const bookPct = (i + 1) / chapters.length;
+            const overall = ((doneBooks + bookPct) / books.length) * 100;
+            setBackupProgress(overall, `导出中：${book.title} · 第 ${i + 1}/${chapters.length} 章`);
+            if ((i + 1) % 5 === 0) await nextFrame();
+          }
+          backup.books.push({ title: book.title, author: book.author || '', description: book.description || '', chapters: fullChapters });
+          doneBooks++;
+          setBackupProgress((doneBooks / books.length) * 100, `已导出 ${doneBooks}/${books.length} 本书 · 共 ${doneChapters} 章`);
+          await nextFrame();
+        }
+
+        if (backupState.cancelled) throw backupAbortedError();
+        setBackupProgress(100, '正在生成文件…');
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `novel-site-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        el.progress.classList.add('is-done');
+        setBackupProgress(100, `备份完成：${books.length} 本书 · ${doneChapters} 章`);
+        showMsg('backup-msg', `备份成功：${books.length} 本书`, 'success');
+      } catch (e) {
+        if (e.aborted) {
+          setBackupProgress(0, '已取消导出');
+          showMsg('backup-msg', '已取消导出', '');
+        } else {
+          setBackupProgress(0, '导出失败');
+          showMsg('backup-msg', '备份失败：' + e.message, 'error');
+        }
+      } finally {
+        backupIdle();
+        if (!backupState.cancelled) setTimeout(() => { el.progress.style.display = 'none'; }, 3000);
+      }
+    }
+
+    // ===== 自定义字体管理 =====
+    async function loadFontList() {
+      const el = document.getElementById('font-list');
+      try {
+        const res = await fetch('/api/fonts');
+        const data = await res.json();
+        const fonts = data.fonts || [];
+        if (fonts.length === 0) {
+          el.innerHTML = '<li style="color:var(--text-light)">暂无自定义字体</li>';
+          return;
+        }
+        el.innerHTML = fonts.map(f => `
+          <li data-font="${esc(f)}">
+            <span style="font-size:14px">${esc(f)}</span>
+            <button class="btn btn-sm btn-danger btn-delete-font">删除</button>
+          </li>
+        `).join('');
+      } catch {
+        el.innerHTML = '<li style="color:var(--text-light)">加载失败</li>';
+      }
+    }
+    // 字体列表事件委托
+    document.getElementById('font-list').addEventListener('click', function(e) {
+      if (e.target.classList.contains('btn-delete-font')) {
+        const li = e.target.closest('li[data-font]');
+        if (li) deleteFont(li.dataset.font);
+      }
+    });
+    async function uploadFont() {
+      const fileInput = document.getElementById('font-file');
+      const file = fileInput.files[0];
+      if (!file) return showMsg('font-msg', '请选择字体文件', 'error');
+      if (!/\.woff2$/i.test(file.name)) return showMsg('font-msg', '只支持 .woff2 格式', 'error');
+      if (file.size > 10 * 1024 * 1024) return showMsg('font-msg', '文件不能超过10MB', 'error');
+      showMsg('font-msg', '上传中...', '');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/admin/fonts', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg('font-msg', '上传成功', 'success');
+        fileInput.value = '';
+        loadFontList();
+      } catch (e) {
+        showMsg('font-msg', e.message, 'error');
+      }
+    }
+    async function deleteFont(filename) {
+      if (!confirm(`确定删除字体「${filename}」？`)) return;
+      try {
+        const res = await api('DELETE', '/api/admin/fonts', { filename });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        loadFontList();
+      } catch (e) {
+        alert('删除失败：' + e.message);
+      }
+    }
+
+    document.getElementById('restore-file').addEventListener('change',async(e)=>{
+      const file=e.target.files[0];
+      if (!file) return;
+      if (backupState.running) { e.target.value=''; return; }
+      if (!confirm('恢复备份会添加数据（不会删除现有数据）。确定继续？')) { e.target.value=''; return; }
+
+      const el = backupEls();
+      backupBusy('restore');
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if (!backup.version || !backup.books) throw new Error('无效的备份文件');
+
+        const books = backup.books;
+        const totalChapters = books.reduce((n, b) => n + ((b.chapters || []).length), 0);
+        let doneBooks = 0, doneChapters = 0, errors = [];
+
+        for (const book of books) {
+          if (backupState.cancelled) throw backupAbortedError();
+          try {
+            setBackupProgress((doneChapters / Math.max(1, totalChapters)) * 100, `正在创建：${book.title}`);
+            const res = await api('POST','/api/admin/books',{title:book.title,author:book.author,description:book.description});
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error);
+            const bookId = d.book.id;
+
+            const chapters = book.chapters || [];
+            for (let i = 0; i < chapters.length; i++) {
+              if (backupState.cancelled) throw backupAbortedError();
+              const ch = chapters[i];
+              await api('POST','/api/admin/chapters',{book_id:bookId,title:ch.title,content:ch.content});
+              doneChapters++;
+              setBackupProgress((doneChapters / Math.max(1, totalChapters)) * 100,
+                `恢复中：${book.title} · 第 ${i + 1}/${chapters.length} 章`);
+              if ((i + 1) % 5 === 0) await nextFrame();
+            }
+          } catch (err) {
+            if (err.aborted) throw err;
+            errors.push(book.title + ': ' + err.message);
+          }
+          doneBooks++;
+          await nextFrame();
+        }
+
+        el.progress.classList.add('is-done');
+        if (errors.length > 0) {
+          setBackupProgress(100, `恢复完成，${errors.length} 本失败`);
+          showMsg('backup-msg',`恢复完成，${errors.length} 本失败：${errors.slice(0,3).join('；')}`,'error');
+        } else {
+          setBackupProgress(100, `恢复完成：${books.length} 本书 · ${doneChapters} 章`);
+          showMsg('backup-msg',`成功恢复 ${books.length} 本书`,'success');
+        }
+        refreshAllBooks();
+      } catch(err) {
+        if (err.aborted) {
+          setBackupProgress(0, '已取消恢复');
+          showMsg('backup-msg','已取消恢复，已导入的数据不会回滚','');
+        } else {
+          setBackupProgress(0, '恢复失败');
+          showMsg('backup-msg','恢复失败：'+err.message,'error');
+        }
+      } finally {
+        e.target.value = '';
+        backupIdle();
+        if (!backupState.cancelled) setTimeout(()=>{ el.progress.style.display='none'; }, 3000);
+      }
+    });
+
+    // ===== EPUB导入 =====
+    let epubChapters = [];
+    let epubTargetTitles = null; // 目标书已有章节标题集合（小写去空格），用于补充导入去重
+    let epubTargetBookId = null;
+
+    function getEpubMode() {
+      return document.querySelector('input[name="epub-import-mode"]:checked').value;
+    }
+
+    function normalizeTitle(t) {
+      return (t || '').toLowerCase().replace(/[\s\u3000]+/g, '');
+    }
+
+    // 导入方式切换
+    document.querySelectorAll('input[name="epub-import-mode"]').forEach(radio => {
+      radio.addEventListener('change', async function() {
+        const isExisting = this.value === 'existing';
+        document.getElementById('epub-existing-book').style.display = isExisting ? '' : 'none';
+        document.getElementById('epub-new-book-info').style.display = isExisting ? 'none' : '';
+        if (isExisting) {
+          await refreshEpubBookSelect();
+          await loadEpubTargetTitles(document.getElementById('epub-book-select').value);
+        } else {
+          epubTargetTitles = null;
+          epubTargetBookId = null;
+        }
+        applyEpubDedupe();
+        updateEpubTargetHint();
+        if (epubChapters.length > 0) renderEpubPreview();
+      });
+    });
+
+    async function refreshEpubBookSelect() {
+      try {
+        const data = await fetchBooks();
+        renderBookSelects(data);
+      } catch {}
+    }
+
+    // 读取目标书已有章节标题，用于识别「已存在」章节
+    async function loadEpubTargetTitles(bookId) {
+      epubTargetTitles = null;
+      epubTargetBookId = bookId ? Number(bookId) : null;
+      if (!epubTargetBookId) return [];
+      try {
+        const res = await fetch(`/api/books/${epubTargetBookId}`);
+        const data = await res.json();
+        const titles = (data.chapters || []).map(c => normalizeTitle(c.title));
+        epubTargetTitles = new Set(titles);
+        return data.chapters || [];
+      } catch {
+        epubTargetTitles = null;
+        return [];
+      }
+    }
+
+    // 按标题标记重复章节：默认取消勾选，用户仍可手动勾选强插
+    function applyEpubDedupe() {
+      for (const c of epubChapters) {
+        const dup = epubTargetTitles ? epubTargetTitles.has(normalizeTitle(c.title)) : false;
+        if (dup && !c.dup) { c.checked = false; c._autoSkipped = true; }
+        else if (!dup && c._autoSkipped) { c.checked = true; c._autoSkipped = false; }
+        c.dup = dup;
+      }
+    }
+
+    function updateEpubTargetHint() {
+      const el = document.getElementById('epub-target-hint');
+      if (!el) return;
+      const sel = document.getElementById('epub-book-select');
+      if (!sel) return;
+      if (getEpubMode() !== 'existing') {
+        el.textContent = '将创建一本新书';
+        return;
+      }
+      const name = sel.options[sel.selectedIndex]?.textContent || '';
+      if (!sel.value) { el.textContent = '请先选择目标书籍'; return; }
+      let dupCount = 0;
+      try { dupCount = epubChapters.filter(c => c.dup).length; } catch {}
+      const position = document.getElementById('epub-position')?.value || 'append';
+      let placeText = '末尾';
+      if (position === 'after') {
+        const afterSel = document.getElementById('epub-after-chapter');
+        const afterText = afterSel?.value ? (afterSel.options[afterSel.selectedIndex]?.textContent || '指定章节') : '指定章节';
+        placeText = `「${afterText.replace(/^第\d+章 /, '')}」之后`;
+      }
+      el.textContent = (position === 'after' ? `插入到《${name.replace(/（\d+ 章）$/, '')}》${placeText}` : `追加到《${name.replace(/（\d+ 章）$/, '')}》${placeText}`) + (dupCount ? `，其中 ${dupCount} 章标题已存在（默认跳过）` : '');
+    }
+
+    document.getElementById('epub-book-select').addEventListener('change', async function() {
+      await loadEpubTargetTitles(this.value);
+      applyEpubDedupe();
+      updateEpubTargetHint();
+      await loadInsertChapterOptions(this.value, 'epub-after-chapter');
+      if (epubChapters.length > 0) renderEpubPreview();
+    });
+
+    document.getElementById('import-book').addEventListener('change', function() {
+      loadInsertChapterOptions(this.value, 'import-after-chapter');
+      updateTxtTargetHint();
+    });
+
+    document.getElementById('epub-after-chapter').addEventListener('change', updateEpubTargetHint);
+
+    document.getElementById('epub-file').addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      if (file.size > 50 * 1024 * 1024) return showMsg('epub-msg', '文件超过 50MB 限制', 'error');
+      if (!file.name.toLowerCase().endsWith('.epub')) return showMsg('epub-msg', '请选择 .epub 文件', 'error');
+
+      document.getElementById('epub-preview').style.display = 'none';
+      document.getElementById('epub-parsing-msg').style.display = '';
+      showMsg('epub-msg', '', '');
+
+      try {
+        if (typeof JSZip === 'undefined') throw new Error('JSZip 库加载失败，请刷新页面重试');
+        const arrayBuffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+
+        // 1. 读取 container.xml 找到 OPF 路径
+        const containerXml = await zip.file('META-INF/container.xml')?.async('text');
+        if (!containerXml) throw new Error('无效的 EPUB 文件：缺少 META-INF/container.xml');
+
+        // 🟢-3: DRM 加密检测（扩展检测逻辑）
+        const drmCheckResult = await checkEPUBDRM(zip);
+        if (drmCheckResult.hasDRM) {
+          throw new Error(`此 EPUB 文件包含 DRM 加密（${drmCheckResult.reason}），无法导入。请使用未加密的 EPUB 文件。`);
+        }
+
+        const containerDoc = new DOMParser().parseFromString(containerXml, 'application/xml');
+        const rootfileEl = containerDoc.querySelector('rootfile[full-path]');
+        if (!rootfileEl) throw new Error('无效的 EPUB 文件：找不到 OPF 路径');
+        const opfPath = rootfileEl.getAttribute('full-path');
+        const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+        // 2. 解析 OPF 文件
+        const opfXml = await zip.file(opfPath)?.async('text');
+        if (!opfXml) throw new Error('无效的 EPUB 文件：找不到 OPF 文件 ' + opfPath);
+        const opfDoc = new DOMParser().parseFromString(opfXml, 'application/xml');
+
+        // 提取 metadata（🟡-5 修复：优先用 getElementsByTagNameNS，避免 CSS 选择器命名空间问题）
+        const getMeta = (localName) => {
+          const el = opfDoc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', localName)[0]
+            || opfDoc.querySelector('metadata ' + localName);
+          if (!el) return '';
+          // OPF是XML，description中的HTML可能被实体转义（&lt;p&gt;）
+          // textContent会解码实体，得到原始HTML字符串
+          const raw = el.textContent || '';
+          if (/<[a-z][\s\S]*>/i.test(raw)) {
+            const tmp = new DOMParser().parseFromString('<body>' + raw + '</body>', 'text/html').body;
+            const parts = [];
+            tmp.querySelectorAll('p, div, li').forEach(b => {
+              const t = b.textContent.trim();
+              if (t) parts.push(t);
+            });
+            if (parts.length > 0) return parts.join('\n').trim();
+            // fallback: 没有块级元素但有标签（如纯<span>），取纯文本
+            return tmp.textContent.trim();
+          }
+          return raw.trim();
+        };
+        const bookTitle = getMeta('title') || file.name.replace(/\.epub$/i, '');
+        const bookAuthor = getMeta('creator') || '';
+        const bookDesc = getMeta('description') || '';
+
+        // 构建 manifest 映射: id -> href
+        const manifest = {};
+        opfDoc.querySelectorAll('manifest item').forEach(item => {
+          manifest[item.getAttribute('id')] = {
+            href: item.getAttribute('href'),
+            mediaType: item.getAttribute('media-type') || ''
+          };
+        });
+
+        // 获取 spine 顺序
+        const spineRefs = [];
+        opfDoc.querySelectorAll('spine itemref').forEach(ref => {
+          spineRefs.push(ref.getAttribute('idref'));
+        });
+
+        if (spineRefs.length === 0) throw new Error('EPUB 文件中没有找到章节（spine 为空）');
+
+        // 3. 按 spine 顺序读取章节
+        const chapters = [];
+        let totalExtracted = 0;
+        const MAX_EXTRACTED = 50 * 1024 * 1024; // 50MB（字节数，非字符数）
+        for (const idref of spineRefs) {
+          const item = manifest[idref];
+          if (!item) continue;
+          // 只处理 XHTML/HTML 类型
+          if (!item.mediaType.includes('html') && !item.mediaType.includes('xml')) continue;
+
+          // 🔴-2 修复：尝试原始路径、解码路径、编码路径（兼容中文文件名EPUB）
+          // 🟡-6 修复：规范化路径，移除 ../ 防止路径遍历
+          const normalizePath = (p) => p.split('/').reduce((acc, part) => {
+            if (part === '..') acc.pop(); else if (part !== '.' && part !== '') acc.push(part); return acc;
+          }, []).join('/');
+          const rawPath = normalizePath(opfDir + item.href);
+          let zipEntry = zip.file(rawPath);
+          if (!zipEntry) { try { zipEntry = zip.file(decodeURIComponent(rawPath)); } catch {} }
+          if (!zipEntry) { try { zipEntry = zip.file(opfDir + encodeURI(item.href)); } catch {} }
+          const content = await zipEntry?.async('text');
+          if (!content) continue;
+
+          // 🔴-4 修复：zip bomb 防护用字节数而非字符数
+          totalExtracted += new TextEncoder().encode(content).byteLength;
+          if (totalExtracted > MAX_EXTRACTED) throw new Error('EPUB 解压后内容过大（超过50MB），可能是异常文件');
+
+          // 🟡-1 修复：直接用 text/html 解析（更宽容，纯文本提取不需要XHTML严格性）
+          const docToUse = new DOMParser().parseFromString(content, 'text/html');
+
+          // 提取章节标题：优先 h1 > h2 > h3 > title > 文件名
+          let title = '';
+          const h1 = docToUse.querySelector('h1');
+          const h2 = docToUse.querySelector('h2');
+          const h3 = docToUse.querySelector('h3');
+          const titleEl = docToUse.querySelector('title');
+          if (h1 && h1.textContent.trim()) title = h1.textContent.trim();
+          else if (h2 && h2.textContent.trim()) title = h2.textContent.trim();
+          else if (h3 && h3.textContent.trim()) title = h3.textContent.trim();
+          else if (titleEl && titleEl.textContent.trim()) title = titleEl.textContent.trim();
+          else {
+            // 用文件名
+            const fname = item.href.split('/').pop().replace(/\.\w+$/, '');
+            title = decodeURIComponent(fname);
+          }
+          title = title.substring(0, 200);
+
+          // 提取纯文本内容，保留段落换行
+          const body = docToUse.body || docToUse.documentElement;
+          let textContent = '';
+          const blocks = body.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, pre, br');
+          if (blocks.length > 0) {
+            const parts = [];
+            const walker = docToUse.createTreeWalker(body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+            let node;
+            const blockTags = new Set(['P','DIV','H1','H2','H3','H4','H5','H6','LI','BLOCKQUOTE','PRE','BR','TR','DT','DD','SECTION','ARTICLE','ASIDE','HEADER','FOOTER','NAV','FIGURE','FIGCAPTION']);
+            let lastWasBlock = false;
+            while (node = walker.nextNode()) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                const t = node.textContent;
+                if (t.trim()) {
+                  parts.push(t);
+                  lastWasBlock = false;
+                }
+              } else if (node.nodeType === Node.ELEMENT_NODE) {
+                // 🟢-2: BR 特殊处理，始终插入换行（允许连续 BR 产生空行）
+                if (node.tagName === 'BR') {
+                  parts.push('\n');
+                } else if (blockTags.has(node.tagName)) {
+                  if (!lastWasBlock && parts.length > 0) {
+                    parts.push('\n');
+                    lastWasBlock = true;
+                  }
+                }
+              }
+            }
+            textContent = parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+          } else {
+            // 回退：直接取 textContent
+            textContent = (body.textContent || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
+          }
+
+          // 过滤空章节
+          if (!textContent.replace(/\s/g, '')) continue;
+
+          // 大章节二次分割：单个XHTML内容过长时，尝试用章节正则拆分
+          // 🟡-2 修复：要求至少分出3个子章节才采用，避免误匹配导致标题错乱
+          if (textContent.length > 20000) {
+            const subChapters = splitChapters(textContent);
+            if (subChapters && subChapters.length >= 3) {
+              for (const sc of subChapters) {
+                if (sc.content && sc.content.trim()) {
+                  chapters.push({ title: sc.title, content: sc.content, checked: true });
+                  if (chapters.length > 5000) throw new Error('章节数量过多（超过5000章），请分批导入');
+                }
+              }
+              continue;
+            }
+          }
+
+          chapters.push({ title, content: textContent, checked: true });
+          if (chapters.length > 5000) throw new Error('章节数量过多（超过5000章），请分批导入');
+        }
+
+        if (chapters.length === 0) throw new Error('EPUB 中没有找到有效章节内容');
+
+        epubChapters = chapters;
+
+        // 填充预览
+        document.getElementById('epub-book-title').value = bookTitle;
+        document.getElementById('epub-book-author').value = bookAuthor;
+        document.getElementById('epub-book-desc').value = bookDesc;
+        document.getElementById('epub-new-book-info').style.display = getEpubMode() === 'existing' ? 'none' : '';
+        if (getEpubMode() === 'existing' && epubTargetTitles === null) {
+          await loadEpubTargetTitles(document.getElementById('epub-book-select').value);
+        }
+        applyEpubDedupe();
+        markMergedChapters('epub');
+        renderEpubPreview();
+        updateEpubTargetHint();
+        document.getElementById('epub-parsing-msg').style.display = 'none';
+        document.getElementById('epub-preview').style.display = '';
+
+      } catch (e) {
+        document.getElementById('epub-parsing-msg').style.display = 'none';
+        showMsg('epub-msg', '解析失败：' + e.message, 'error');
+      }
+    });
+
+    function renderEpubPreview() {
+      const el = document.getElementById('epub-chapters');
+      const checked = epubChapters.filter(c => c.checked);
+      const totalWords = checked.reduce((s, c) => s + c.content.length, 0);
+      const dupCount = epubChapters.filter(c => c.dup).length;
+      document.getElementById('epub-total').textContent = checked.length;
+      document.getElementById('epub-all-total').textContent = epubChapters.length;
+      document.getElementById('epub-words').textContent = totalWords.toLocaleString();
+      document.getElementById('epub-dup-hint').textContent = dupCount ? ` · ${dupCount} 章标题已存在（已取消勾选）` : '';
+      el.innerHTML = epubChapters.map((c, i) => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" ${c.checked ? 'checked' : ''} data-idx="${i}" class="epub-check">
+            <input type="text" value="${esc(c.title)}" data-idx="${i}" maxlength="200" class="epub-title-edit" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:14px;background:var(--bg);color:var(--text)">
+            ${c.dup ? '<span style="font-size:11px;color:#e67e22;background:#fef3e2;padding:1px 6px;border-radius:3px;white-space:nowrap">已存在</span>' : ''}
+            ${c._merged ? '<span style="font-size:11px;color:#e74c3c;background:#fde8e8;padding:1px 6px;border-radius:3px;white-space:nowrap">疑似粘连</span>' : ''}
+            <span style="font-size:12px;color:var(--text-light);white-space:nowrap">${c.content.length} 字</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;padding-left:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.content.slice(0, 120))}</div>
+        </div>
+      `).join('');
+      const mergedBtn = document.getElementById('epub-split-merged-btn');
+      if (mergedBtn) mergedBtn.style.display = epubChapters.some(c => c._merged) ? '' : 'none';
+    }
+
+    function updateEpubStats() {
+      const checked = epubChapters.filter(c => c.checked);
+      document.getElementById('epub-total').textContent = checked.length;
+      document.getElementById('epub-all-total').textContent = epubChapters.length;
+      document.getElementById('epub-words').textContent = checked.reduce((s, c) => s + c.content.length, 0).toLocaleString();
+      const dupCount = epubChapters.filter(c => c.dup).length;
+      document.getElementById('epub-dup-hint').textContent = dupCount ? ` · ${dupCount} 章标题已存在（已取消勾选）` : '';
+      const merged = epubChapters.filter(c => c._merged).length;
+      const btn = document.getElementById('epub-split-merged-btn');
+      if (btn) btn.style.display = merged ? '' : 'none';
+    }
+
+    // 事件委托：章节勾选和标题编辑
+    document.getElementById('epub-chapters').addEventListener('change', function(e) {
+      if (e.target.classList.contains('epub-check')) {
+        const ch = epubChapters[e.target.dataset.idx];
+        ch.checked = e.target.checked;
+        ch._autoSkipped = false;
+        updateEpubStats();
+      } else if (e.target.classList.contains('epub-title-edit')) {
+        const ch = epubChapters[e.target.dataset.idx];
+        ch.dup = epubTargetTitles ? epubTargetTitles.has(normalizeTitle(ch.title)) : false;
+        renderEpubPreview();
+      }
+    });
+    document.getElementById('epub-chapters').addEventListener('input', function(e) {
+      if (e.target.classList.contains('epub-title-edit')) {
+        const ch = epubChapters[e.target.dataset.idx];
+        ch.title = e.target.value;
+        ch.dup = epubTargetTitles ? epubTargetTitles.has(normalizeTitle(ch.title)) : false;
+        updateEpubStats();
+      }
+    });
+
+    function cancelEpubImport() {
+      epubChapters = [];
+      document.getElementById('epub-preview').style.display = 'none';
+      document.getElementById('epub-file').value = '';
+      document.getElementById('epub-progress').style.display = 'none';
+      document.getElementById('epub-parsing-msg').style.display = 'none';
+      showMsg('epub-msg', '', '');
+    }
+
+    // ===== 标签系统（融合到书籍创建/编辑流程） =====
+    let _allTags = [];
+    let adminActiveTagId = null;
+    let _createBookTags = []; // 创建书籍时选中的标签ID
+
+    async function loadTagList() {
+      try {
+        const res = await api('GET', '/api/admin/tags');
+        const data = await res.json();
+        _allTags = data.tags || [];
+        renderAdminCategoryFilter();
+      } catch { _allTags = []; }
+    }
+
+    function renderAdminCategoryFilter() {
+      const container = document.getElementById('admin-category-filter');
+      if (!container) return;
+      if (_allTags.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      const options = [{ id: null, name: '全部' }, ..._allTags];
+      container.innerHTML = options.map(tag => {
+        const active = adminActiveTagId === tag.id;
+        return `<span class="tag-pill category-pill${active ? ' active' : ''}" data-admin-tag-id="${tag.id === null ? '' : tag.id}"${tag.color ? ` style="--category-color:${esc(tag.color)}"` : ''}>${esc(tag.name)}</span>`;
+      }).join('');
+      container.onclick = (event) => {
+        const pill = event.target.closest('.tag-pill');
+        if (!pill) return;
+        adminActiveTagId = pill.dataset.adminTagId ? Number(pill.dataset.adminTagId) : null;
+        renderAdminCategoryFilter();
+        renderBookList({ books: _booksCache });
+      };
+    }
+
+    function renderCategoryManager() {
+      const container = document.getElementById('category-list');
+      if (!container) return;
+      if (_allTags.length === 0) {
+        container.innerHTML = '<span class="category-empty">暂无分类，请先创建一个。</span>';
+        return;
+      }
+      container.innerHTML = _allTags.map(tag => `
+        <div class="category-management-item">
+          <span class="tag-pill category-pill" style="--category-color:${esc(tag.color)}">${esc(tag.name)}</span>
+          <span class="category-count">${Number(tag.book_count || 0)} 本书</span>
+          ${currentRole !== 'demo' ? `<button class="btn btn-sm btn-danger category-delete-btn" data-category-id="${tag.id}" data-category-name="${esc(tag.name)}">删除</button>` : ''}
+        </div>
+      `).join('');
+      container.querySelectorAll('.category-delete-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          if (!confirm(`删除分类「${button.dataset.categoryName}」？书籍本身不会被删除。`)) return;
+          const res = await api('DELETE', '/api/admin/tags', { id: Number(button.dataset.categoryId) });
+          if (!res.ok) {
+            showMsg('category-msg', '删除分类失败', 'error');
+            return;
+          }
+          await loadTagList();
+          renderCreateBookTags();
+          renderCategoryManager();
+          renderAdminCategoryFilter();
+          renderBookList({ books: _booksCache });
+        });
+      });
+    }
+
+    document.getElementById('create-category-btn').addEventListener('click', async () => {
+      const input = document.getElementById('category-name');
+      const name = input.value.trim();
+      if (!name) {
+        showMsg('category-msg', '请输入分类名称', 'error');
+        return;
+      }
+      const res = await api('POST', '/api/admin/tags', {
+        name,
+        color: document.getElementById('category-color').value
+      });
+      if (!res.ok) {
+        let message = '创建分类失败';
+        try { message = (await res.json()).error || message; } catch {}
+        showMsg('category-msg', message, 'error');
+        return;
+      }
+      input.value = '';
+      showMsg('category-msg', '分类已创建', 'success');
+      await loadTagList();
+      renderCreateBookTags();
+      renderCategoryManager();
+      renderAdminCategoryFilter();
+    });
+
+    // 通用标签选择器渲染（用于创建和编辑书籍）
+    function renderTagSelector(containerId, selectedIds, onToggle) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      if (_allTags.length === 0) {
+        container.innerHTML = '';
+        // 隐藏父级 form-group
+        const parent = container.closest('.form-group');
+        if (parent) parent.style.display = 'none';
+        return;
+      }
+      const parent = container.closest('.form-group');
+      if (parent) parent.style.display = '';
+      container.innerHTML = _allTags.map(t => {
+        const checked = selectedIds.includes(t.id);
+        return `<label data-tag-id="${t.id}" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border:1px solid ${checked ? t.color : 'var(--border)'};border-radius:12px;font-size:13px;background:${checked ? t.color + '22' : 'transparent'};color:${checked ? t.color : 'var(--text-light)'};transition:all .15s;user-select:none">
+          ${esc(t.name)}${currentRole !== 'demo' ? `<span class="tag-delete-x" data-tag-id="${t.id}" style="margin-left:2px;font-size:11px;opacity:0.5;cursor:pointer" title="删除标签">✕</span>` : ''}
+        </label>`;
+      }).join('');
+      // 点击切换选中
+      container.querySelectorAll('label[data-tag-id]').forEach(label => {
+        label.addEventListener('click', (e) => {
+          if (e.target.classList.contains('tag-delete-x')) return; // 删除按钮单独处理
+          const tagId = Number(label.dataset.tagId);
+          onToggle(tagId);
+        });
+      });
+      // 删除标签（admin以上）
+      container.querySelectorAll('.tag-delete-x').forEach(x => {
+        x.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const tagId = Number(x.dataset.tagId);
+          const tag = _allTags.find(t => t.id === tagId);
+          if (!tag) return;
+          if (!confirm(`删除标签「${tag.name}」？所有书籍上的此标签也会移除。`)) return;
+          try {
+            const res = await api('DELETE', '/api/admin/tags', { id: tagId });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            await loadTagList();
+            // 从选中列表中移除
+            _createBookTags = _createBookTags.filter(id => id !== tagId);
+            _editBookTags = _editBookTags.filter(id => id !== tagId);
+            renderCreateBookTags();
+            renderEditBookTags();
+          } catch (e) { alert('删除失败：' + e.message); }
+        });
+      });
+    }
+
+    // 创建书籍的标签选择
+    function renderCreateBookTags() {
+      renderTagSelector('create-book-tags', _createBookTags, (tagId) => {
+        if (_createBookTags.includes(tagId)) _createBookTags = _createBookTags.filter(id => id !== tagId);
+        else _createBookTags.push(tagId);
+        renderCreateBookTags();
+      });
+    }
+
+    // ===== 书籍编辑弹窗 =====
+    const bookEditOverlay = document.getElementById('book-edit-overlay');
+    let _editBookId = null;
+    let _editBookTags = [];
+
+    document.getElementById('close-book-edit').addEventListener('click', () => bookEditOverlay.classList.remove('active'));
+    bookEditOverlay.addEventListener('click', (e) => { if (e.target === bookEditOverlay) bookEditOverlay.classList.remove('active'); });
+
+    async function openBookEditOverlay(book) {
+      _editBookId = book.id;
+      document.getElementById('edit-book-id').value = book.id;
+      document.getElementById('edit-book-title').value = book.title || '';
+      document.getElementById('edit-book-author').value = book.author || '';
+      document.getElementById('edit-book-desc').value = book.description || '';
+
+      // 封面预览
+      const preview = document.getElementById('edit-cover-preview');
+      const removeBtn = document.getElementById('remove-cover-btn');
+      if (book.cover_key) {
+        preview.innerHTML = `<img src="/api/covers/${book.id}" style="width:100%;height:100%;object-fit:cover">`;
+        removeBtn.style.display = '';
+      } else {
+        preview.innerHTML = '<span style="color:var(--text-light);font-size:12px">无封面</span>';
+        removeBtn.style.display = 'none';
+      }
+      document.getElementById('edit-cover-file').value = '';
+
+      // 加载标签
+      if (_allTags.length === 0) await loadTagList();
+      // 批注开关：先用传入的 book 对象值（🟢-8: 兼容下架/回收站书籍）
+      document.getElementById('edit-annotation-enabled').checked = !!book.annotation_enabled;
+
+      // 获取当前书籍标签
+      try {
+        const res = await fetch(`/api/books/${book.id}`);
+        const data = await res.json();
+        _editBookTags = (data.book.tags || []).map(t => t.id);
+        // 如果 API 返回了更新的值，覆盖
+        if (data.book.annotation_enabled !== undefined) {
+          document.getElementById('edit-annotation-enabled').checked = !!data.book.annotation_enabled;
+        }
+      } catch { _editBookTags = []; }
+      renderEditBookTags();
+
+      bookEditOverlay.classList.add('active');
+    }
+
+    function renderEditBookTags() {
+      renderTagSelector('edit-book-tags', _editBookTags, (tagId) => {
+        if (_editBookTags.includes(tagId)) _editBookTags = _editBookTags.filter(id => id !== tagId);
+        else _editBookTags.push(tagId);
+        renderEditBookTags();
+      });
+      // demo用户隐藏内联创建标签
+      const actions = document.getElementById('edit-tag-actions');
+      if (actions) actions.style.display = currentRole === 'demo' ? 'none' : '';
+    }
+
+    // 内联创建标签（编辑弹窗内）
+    document.getElementById('inline-create-tag-btn').addEventListener('click', async () => {
+      const nameInput = document.getElementById('inline-tag-name');
+      const colorInput = document.getElementById('inline-tag-color');
+      const name = nameInput.value.trim();
+      const color = colorInput.value;
+      if (!name) return;
+      try {
+        const res = await api('POST', '/api/admin/tags', { name, color });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        nameInput.value = '';
+        await loadTagList();
+        // 自动选中新创建的标签
+        if (data.tag && data.tag.id) {
+          _editBookTags.push(data.tag.id);
+        }
+        renderEditBookTags();
+        renderCreateBookTags();
+      } catch (e) { alert('创建失败：' + e.message); }
+    });
+
+    // 封面上传压缩
+    async function compressCoverImage(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 400;
+          let w = img.width, h = img.height;
+          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.toBlob(resolve, 'image/jpeg', 0.8);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    document.getElementById('remove-cover-btn').addEventListener('click', async () => {
+      if (!_editBookId) return;
+      try {
+        await api('DELETE', `/api/admin/covers?book_id=${_editBookId}`);
+        document.getElementById('edit-cover-preview').innerHTML = '<span style="color:var(--text-light);font-size:12px">无封面</span>';
+        document.getElementById('remove-cover-btn').style.display = 'none';
+      } catch (e) { alert('删除封面失败：' + e.message); }
+    });
+
+    document.getElementById('choose-cover-btn').addEventListener('click', () => {
+      document.getElementById('edit-cover-file').click();
+    });
+
+    document.getElementById('edit-cover-file').addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      const preview = document.getElementById('edit-cover-preview');
+      const url = URL.createObjectURL(file);
+      preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+    });
+
+    document.getElementById('save-book-edit-btn').addEventListener('click', async () => {
+      if (!_editBookId) return;
+      const title = document.getElementById('edit-book-title').value.trim();
+      const author = document.getElementById('edit-book-author').value.trim();
+      const description = document.getElementById('edit-book-desc').value.trim();
+      if (!title) return alert('书名不能为空');
+
+      try {
+        // 保存基本信息（含批注开关）
+        const annotationEnabled = document.getElementById('edit-annotation-enabled').checked ? 1 : 0;
+        const res = await api('PUT', `/api/admin/books/${_editBookId}`, { title, author, description, annotation_enabled: annotationEnabled });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        // 上传封面
+        const coverFile = document.getElementById('edit-cover-file').files[0];
+        if (coverFile) {
+          const compressed = /^(image\/gif|image\/avif)$/.test(coverFile.type)
+            ? coverFile
+            : await compressCoverImage(coverFile);
+          const formData = new FormData();
+          formData.append('file', compressed, coverFile.name);
+          const coverResponse = await fetch(`/api/admin/covers?book_id=${_editBookId}`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+          });
+          const coverResult = await coverResponse.json();
+          if (!coverResponse.ok) throw new Error(coverResult.error || '封面上传失败');
+        }
+
+        // 保存标签
+        await api('PUT', '/api/admin/book-tags', { book_id: _editBookId, tag_ids: _editBookTags });
+
+        bookEditOverlay.classList.remove('active');
+        refreshAllBooks();
+      } catch (e) { alert('保存失败：' + e.message); }
+    });
+
+    // 在 showAdminPanel 中也加载标签并渲染创建书籍的标签选择器
+    const _origShowAdminPanel = showAdminPanel;
+    showAdminPanel = async function(username, role) {
+      _origShowAdminPanel(username, role);
+      await loadTagList();
+      _createBookTags = [];
+      renderCreateBookTags();
+    };
+
+    async function startEpubImport() {
+      const chapters = epubChapters.filter(c => c.checked);
+      if (chapters.length === 0) return showMsg('epub-msg', '没有选中任何章节', 'error');
+
+      const mode = getEpubMode();
+      let bookId;
+
+      if (mode === 'new') {
+        const title = document.getElementById('epub-book-title').value.trim();
+        if (!title) return showMsg('epub-msg', '请输入书名', 'error');
+        const author = document.getElementById('epub-book-author').value.trim();
+        const description = document.getElementById('epub-book-desc').value.trim();
+        try {
+          const res = await api('POST', '/api/admin/books', { title, author, description });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          bookId = data.book.id;
+        } catch (e) {
+          return showMsg('epub-msg', '创建书籍失败：' + e.message, 'error');
+        }
+      } else {
+        const sel = document.getElementById('epub-book-select');
+        if (!sel.value) return showMsg('epub-msg', '请先选择目标书籍', 'error');
+        bookId = Number(sel.value);
+      }
+
+      // 计算新章节的起始 sort_order（补充导入的插入模式会先为后续章节腾出空间）
+      let baseOrder = 0;
+      if (mode === 'existing') {
+        const position = document.getElementById('epub-position').value;
+        const afterChapterId = position === 'after' ? document.getElementById('epub-after-chapter').value : '';
+        if (position === 'after' && !afterChapterId) {
+          return showMsg('epub-msg', '请选择插入到哪一章之后', 'error');
+        }
+        await loadEpubTargetTitles(bookId);
+        try {
+          baseOrder = await resolveBaseOrder(bookId, afterChapterId, chapters.length);
+        } catch (e) {
+          return showMsg('epub-msg', e.message, 'error');
+        }
+      }
+
+      // 开始导入章节
+      const bar = document.getElementById('epub-bar');
+      const status = document.getElementById('epub-status');
+      document.getElementById('epub-progress').style.display = '';
+      bar.style.width = '0%';
+      let uploaded = 0, errors = [];
+
+      const tasks = chapters.map((ch, idx) => async () => {
+        let lastErr;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            const res = await api('POST', '/api/admin/chapters', { book_id: Number(bookId), title: ch.title, content: ch.content, sort_order: baseOrder + idx + 1 });
+            if (res.ok) return;
+            const d = await res.json();
+            if (res.status >= 400 && res.status < 500) { errors.push(ch.title + ': ' + d.error); return; }
+            lastErr = d.error;
+          } catch (e) { lastErr = e.message; }
+          if (retry < 2) await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
+        }
+        errors.push(ch.title + ': ' + lastErr);
+      });
+      const tracked = tasks.map(fn => async () => { try { await fn(); } finally { uploaded++; const pct = Math.round(uploaded / chapters.length * 100); bar.style.width = pct + '%'; status.textContent = `${uploaded}/${chapters.length} 章（${pct}%）`; } });
+      await concurrentUpload(tracked, 3);
+
+      // 先复位预览（cancelEpubImport 会清空提示），再显示导入结果
+      const skipped = epubChapters.filter(c => c.dup && !c.checked).length;
+      const isInsert = mode === 'existing' && document.getElementById('epub-position').value === 'after';
+      cancelEpubImport();
+      if (errors.length > 0) {
+        // 如果是新建书且全部章节都失败，自动删除空书
+        if (mode === 'new' && errors.length === chapters.length) {
+          try { await api('DELETE', '/api/admin/books/' + bookId); } catch {}
+          showMsg('epub-msg', `导入全部失败，已自动删除空书。失败原因：\n${errors.join('\n')}`, 'error');
+        } else {
+          showMsg('epub-msg', `导入完成，${errors.length} 章失败：\n${errors.join('\n')}`, 'error');
+        }
+      } else {
+        const where = mode === 'existing' ? (isInsert ? '（已插入到指定章节之后，后续章节已顺延）' : '（已追加到书籍末尾）') : '';
+        showMsg('epub-msg', `成功导入 ${uploaded} 章` + where + (skipped ? `，跳过 ${skipped} 章已存在章节` : ''), 'success');
+      }
+      refreshAllBooks();
+      loadChapters();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>分类 - 书间</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/style.css?v=commentfix-20261112">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#d4a574">
+</head>
+<body>
+  <div class="navbar">
+    <h1><a href="/">书间</a></h1>
+    <nav><a href="/">返回书架</a><button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button></nav>
+  </div>
+  <div class="container">
+    <div class="breadcrumb"><a href="/">书架</a><span>›</span><span id="category-title">加载中...</span></div>
+    <main>
+      <div id="category-header" class="category-page-header loading">加载中...</div>
+      <div id="category-content" class="book-grid-cover"></div>
+    </main>
+  </div>
+  <script>
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function coverColor(title) {
+      const colors = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e63'];
+      let hash = 0; for (let i = 0; i < (title || '').length; i++) hash = ((hash << 5) - hash + title.charCodeAt(i)) | 0;
+      return colors[Math.abs(hash) % colors.length];
+    }
+    async function loadCategory() {
+      const id = Number(new URLSearchParams(location.search).get('id'));
+      const header = document.getElementById('category-header');
+      const content = document.getElementById('category-content');
+      if (!Number.isInteger(id) || id < 1) {
+        header.className = 'msg msg-error';
+        header.textContent = '无效的分类';
+        return;
+      }
+      try {
+        const [tagsRes, booksRes] = await Promise.all([fetch('/api/tags'), fetch('/api/books')]);
+        const tags = (await tagsRes.json()).tags || [];
+        const books = (await booksRes.json()).books || [];
+        const tag = tags.find(item => item.id === id);
+        if (!tag) throw new Error('分类不存在');
+        const matched = books.filter(book => (book.tags || []).some(item => item.id === id));
+        document.title = tag.name + ' - 书间';
+        document.getElementById('category-title').textContent = tag.name;
+        header.className = 'category-page-header';
+        header.innerHTML = `<div><h2>${esc(tag.name)}</h2><p>${matched.length} 本书</p></div>`;
+        if (!matched.length) {
+          content.innerHTML = '<div class="empty"><p>这个分类暂时没有书籍</p></div>';
+          return;
+        }
+        content.innerHTML = matched.map(book => {
+          const cover = book.cover_key
+            ? `<img class="cover-img" src="/api/covers/${book.id}" alt="${esc(book.title)}" loading="lazy">`
+            : `<div class="cover-placeholder" style="background:${coverColor(book.title)}">${esc((book.title || '?')[0])}</div>`;
+          const tags = (book.tags || []).map(item => `<span class="tag-pill book-tag-link" role="link" tabindex="0" data-category-url="/category.html?id=${item.id}" style="--category-color:${esc(item.color)}">${esc(item.name)}</span>`).join('');
+          return `<a class="book-card-cover" href="/book.html?id=${book.id}">${cover}<div class="card-body"><h3>${esc(book.title)}</h3><div class="meta">${book.author ? esc(book.author) + ' · ' : ''}${book.chapter_count}章</div><div class="card-tags">${tags}</div></div></a>`;
+        }).join('');
+        content.querySelectorAll('.book-tag-link').forEach(tag => {
+          const openCategory = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.type === 'click' || event.key === 'Enter' || event.key === ' ') location.href = tag.dataset.categoryUrl;
+          };
+          tag.addEventListener('click', openCategory);
+          tag.addEventListener('keydown', openCategory);
+        });
+      } catch (error) {
+        header.className = 'msg msg-error';
+        header.textContent = error.message || '分类加载失败';
+      }
+    }
+    loadCategory();
+  </script>
+</body>
+</html>

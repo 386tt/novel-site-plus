@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人主页 - 书间</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/style.css?v=commentfix-20261112">
+</head>
+<body>
+  <div class="navbar">
+    <h1><a href="/">书间</a></h1>
+    <nav>
+      <a href="/">返回书架</a>
+      <a href="#" id="logout">退出登录</a>
+      <button class="theme-toggle" type="button" title="切换主题">🌙</button>
+    </nav>
+  </div>
+  <main class="container profile-page">
+    <section class="profile-shell">
+      <div id="profile" class="loading">加载中...</div>
+    </section>
+  </main>
+  <script>
+    const profile=document.getElementById('profile'), profileUserId=new URLSearchParams(location.search).get('userId'); let profileData=null,isOwner=false;
+    async function loadProfile(){try{const res=profileUserId?await fetch('/api/profile?userId='+encodeURIComponent(profileUserId),{cache:'no-store'}):await fetch('/api/profile?fresh='+Date.now(),{credentials:'same-origin',cache:'no-store'});if(!res.ok){location.href='/auth.html';return}const data=await res.json();profileData=data.user;profileData.favorites=data.favorites||[];isOwner=!profileUserId;renderProfile();document.getElementById('logout').style.display=isOwner?'':'none'}catch{profile.className='msg msg-error';profile.textContent='加载失败，请稍后重试'}}
+    function renderProfile(editing=false){const u=profileData,f=u.favorites||[],bg=u.profile_bg_url?`background-image:url('${esc(u.profile_bg_url)}')`:'';profile.className='profile-content';profile.innerHTML=`<div class="profile-cover" style="${bg}"><div class="profile-cover-shade"></div><div class="profile-cover-content"><img class="profile-avatar" src="${esc(u.avatar_url||u.avatarUrl||'/icon.svg')}" alt="${esc(u.username)}"><div class="profile-identity"><h2>${esc(u.username)}</h2><span>${u.role==='reader'?'普通读者':'管理员'}</span></div></div></div><div class="profile-body"><div class="profile-actions">${isOwner&&!editing?'<button class="btn" id="edit-profile">编辑资料</button>':''}${editing?'<button class="btn" id="cancel-edit">取消</button>':''}</div>${editing?renderEditor(u):renderPublic(u,f)}</div>`;if(editing)bindEditor();else if(isOwner)document.getElementById('edit-profile').onclick=()=>renderProfile(true)}
+    function renderPublic(u,f){return `<section class="profile-intro"><div class="profile-section-kicker">ABOUT</div><p>${esc(u.bio||'这个用户还没有填写简介。')}</p></section><section class="profile-favorites"><div class="profile-section-heading"><div><div class="profile-section-kicker">FAVORITES</div><h3>最爱的书</h3></div><span>${f.length} 本</span></div>${f.length?'<div class="favorite-grid">'+f.map(b=>`<a class="favorite-book" href="/book.html?id=${b.id}">${b.cover_key?`<img src="/api/covers/${b.id}" alt="${esc(b.title)}">`:'<div class="favorite-book-placeholder">书</div>'}<div><strong>${esc(b.title)}</strong><small>${esc(b.author||'未知作者')} ? ? ${b.like_count}</small></div></a>`).join('')+'</div>':'<div class="profile-empty">喜欢的书会出现在这里。</div>'}</section>`;}
+    function renderEditor(u){return `<div class="profile-editor"><div class="form-group"><label>个人简介（最多200字）</label><textarea id="bio" maxlength="200" rows="4">${esc(u.bio||'')}</textarea></div><div class="profile-upload-grid"><div class="form-group"><label>头像（最大1MB）</label><input id="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></div><div class="form-group"><label>主页背景（最大5MB）</label><input id="background" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></div></div><button class="btn" id="save-profile">保存资料</button><div id="profile-msg" class="msg" style="display:none"></div></div>`;}
+    function bindEditor(){document.getElementById('cancel-edit').onclick=()=>renderProfile();document.getElementById('save-profile').onclick=async()=>{const btn=document.getElementById('save-profile');btn.disabled=true;try{const br=await fetch('/api/profile',{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({bio:document.getElementById('bio').value})});if(!br.ok)throw Error((await br.json()).error||'简介保存失败');for(const [field,type] of [['avatar','avatar'],['background','background']]){const file=document.getElementById(field).files[0];if(!file)continue;const form=new FormData();form.append(field,file);form.append('type',type);const r=await fetch('/api/profile',{method:'POST',credentials:'same-origin',body:form});if(!r.ok)throw Error((await r.json()).error||'图片上传失败')}await loadProfile()}catch(e){showMessage(e.message,true)}finally{btn.disabled=false}}}
+    function showMessage(text,error=false){const el=document.getElementById('profile-msg');if(!el)return;el.style.display='';el.className='msg '+(error?'msg-error':'msg-success');el.textContent=text}
+    document.getElementById('logout').onclick=async e=>{e.preventDefault();await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store'}).catch(()=>{});localStorage.clear();sessionStorage.clear();location.replace('/?logged_out='+Date.now())};function esc(v){const n=document.createElement('div');n.textContent=v||'';return n.innerHTML}loadProfile();
+  </script>
+</body>
+</html>
