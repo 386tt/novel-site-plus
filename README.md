@@ -1,8 +1,8 @@
 # 📚 书间 — 零成本私人小说站
 
-[![License](https://img.shields.io/github/license/386tt/novel-site?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/386tt/novel-site-plus?style=flat-square)](LICENSE)
 [![Deploy](https://img.shields.io/badge/deploy-Cloudflare%20Pages-orange?style=flat-square)](https://pages.cloudflare.com)
-[![Zero Framework](https://img.shields.io/badge/framework-none-brightgreen?style=flat-square)]()
+[![Zero Framework](https://img.shields.io/badge/framework-none-brightgreen?style=flat-square)](https://github.com/386tt/novel-site-plus)
 
 > Cloudflare Pages + D1 + R2 + Functions 全栈方案，零框架、零构建、零服务器成本
 
@@ -237,7 +237,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/386tt/novel-site.git
+git clone https://github.com/386tt/novel-site-plus.git
 cd novel-site
 
 # 2. 登录 Cloudflare
